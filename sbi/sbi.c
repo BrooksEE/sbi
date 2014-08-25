@@ -7,11 +7,11 @@
 
 #include "sbi.h"
 
-#include "funclib.h"
+sbi_config_t *_sbi_config;
 
 // Debug functions
-#define _debug(d)				debugn(d)
-#define _error(d)				errorn(d)
+#define _debug(d)				_sbi_config->debugn(d)
+#define _error(d)				_sbi_config->errorn(d)
 
 // Variables, labels and subroutines
 byte _t[VARIABLESNUM];
@@ -71,10 +71,11 @@ unsigned int i;
 /*
 	Initializes the interpreter
  */
-void _sbi_init(void)
+void _sbi_init(sbi_config_t* c)
 {
+	_sbi_config = c;
 	// Init
-	_inituserfunc();
+	c->initui();
 }
 
 /*

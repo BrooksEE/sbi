@@ -7,14 +7,14 @@
 
 #ifndef _SBI_H
 	#define _SBI_H
+
+	#include "funclib.h"
 	
 	// Configuration
 	#define VARIABLESNUM				64
 	#define USERFUNCTIONSN			16
 	#define RETURNADDRESSESN		16
 	
-	// Define 'byte' variable type
-	typedef unsigned char byte;
 	
 	// SBI format
 	#define HEADER_0						0xAA
@@ -64,7 +64,7 @@
 	byte _getval(const byte type, const byte val);
 	unsigned int _setval(const byte type, const byte num, const byte val);
 	
-	void _sbi_init(void);
+	void _sbi_init(sbi_config_t*);
 	unsigned int _sbi_begin(void);
 	unsigned int _sbi_run(void);
 	

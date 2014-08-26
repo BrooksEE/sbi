@@ -7,7 +7,10 @@
 
 #ifndef _SBI_H
 	#define _SBI_H
-	
+    
+    // typedef
+	typedef unsigned char byte;
+
 	// Configuration
 	#define VARIABLESNUM				64
 	#define USERFUNCTIONSN				16
@@ -82,6 +85,7 @@
 	
 	#define _varid							0x04
 	#define _value							0xF4
+
 	
 	#ifdef _SBI_MULTITHREADING_ENABLE
 		// SBI multithreading eums
@@ -134,21 +138,53 @@
 	// User functions
 	extern void (*_sbifuncs[USERFUNCTIONSN])(byte[]);
 	
-	#ifndef _SBI_MULTITHREADING_ENABLE
-        typedef byte (*getfch_func)(void);
-		extern getfch_func _getfch; 
-	#endif
+
+    // all context functions take 2nd argument
+    // of sbi_context_t* taken from passid in
+    // context.
+
+    struct sbi_context_t;
+
+	// User functions
+	typedef void (*sbi_user_func)(byte[], struct sbi_context_t*);
+
+	// Put here your debug code
+	typedef void(*debugn_func)(byte n, struct sbi_context_t*);
+
+	// Put here your error printing code
+	typedef void(*errorn_func)(byte n, struct sbi_context_t*);
+
+    #ifndef _SBI_MULTITHREADING_ENABLE
+    // returns the next byte from the source sbi
+	typedef byte (*getfch_func)(struct sbi_context_t*);
+    #endif
+
+    //// set the source sbi pos
+	//typedef void (*setfpos_func)(const unsigned int, sbi_context_t*);
+    //// get the source sbi pos
+	//typedef unsigned int (*getfpos_func)(sbi_context_t*);
+	
+	struct sbi_context_t {
+		debugn_func debugn;
+		errorn_func errorn;
+        #ifndef _SBI_MULTITHREADING_ENABLE
+		getfch_func getfch; 
+    	#endif
+        //setfpos_func setfpos;
+        //getfpos_func getfpos;
+	    sbi_user_func sbi_user_funcs[USERFUNCTIONSN];
+	};
 	
 	byte _getval(const byte type, const byte val);
 	unsigned int _setval(const byte type, const byte num, const byte val);
 	
-	void _sbi_init(void);
+	void _sbi_init(struct sbi_context_t*);
 	
-	void _interrupt(const INTERRUPT id);
+	void _interrupt(const INTERRUPT id, struct sbi_context_t*);
 	
 	#ifndef _SBI_MULTITHREADING_ENABLE
-		unsigned int _sbi_begin(void);
-		unsigned int _sbi_step(void);
+		unsigned int _sbi_begin(struct sbi_context_t*);
+		unsigned int _sbi_step(struct sbi_context_t*);
 	#endif
 	
 	#ifdef _SBI_MULTITHREADING_ENABLE
@@ -170,7 +206,6 @@
 		SBITHREADSTATUS _sbi_getthreadstatus(SBITHREAD* thread);
 		SBITHREADERROR _sbi_getthreaderror(SBITHREAD* thread);
 	#endif
-	
 	
 	
 #endif

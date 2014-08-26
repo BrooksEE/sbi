@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <sbi.h>
 
+#include "funclib.h"
+
 FILE* f;
 
 int pos;
@@ -32,12 +34,18 @@ int main(int argc, char** argv)
 	
 	if (!f) { printf("Can't open file!\n"); return 1; }
 	
-	// Init
-	_getfch=getfch;
+	// Init_
+    struct sbi_context_t ctx;
+    ctx.debugn=debugn;
+    ctx.errorn=errorn;
+    ctx.getfch=getfch;
+    ctx.sbi_user_funcs[0] = myfunc;
+    ctx.sbi_user_funcs[1] = getnum;
+    
 
-	_sbi_init(); pos=0;
+	_sbi_init(&ctx); pos=0;
 	
-	int ret = _sbi_begin();
+	int ret = _sbi_begin(&ctx);
 	if (ret==1) printf("Initialization error (no function pointers)\n");
 	if (ret==2) printf("Initialization error (old format version)\n");
 	if (ret==3) printf("Initialization error (invalid program file)\n");
@@ -49,7 +57,7 @@ int main(int argc, char** argv)
 	
 	while (ret==0)
 	{
-		ret = _sbi_step();
+		ret = _sbi_step(&ctx);
 	}
 	
 	fclose(f);

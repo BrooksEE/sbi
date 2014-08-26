@@ -9,11 +9,13 @@
 
 #include <stdlib.h>
 
-sbi_config_t *_sbi_config;
+// function macros for easy access 
+#define _debug(d)				ctx->debugn(d,ctx)
+#define _error(d)				ctx->errorn(d,ctx)
+#define _getfch()               ctx->getfch(ctx)
+#define _setfpos(p)             ctx->setfpos(p,ctx)
+#define _getfpos(p)             ctx->getfpos(ctx)
 
-// Debug functions
-#define _debug(d)				_sbi_config->debugn(d)
-#define _error(d)				_sbi_config->errorn(d)
 
 // Variables, labels and subroutines
 byte _t[VARIABLESNUM];
@@ -29,10 +31,6 @@ unsigned int _queuedint = 0;
 // User functions
 void (*_sbifuncs[USERFUNCTIONSN])(byte[]);
 unsigned int _userfid = 0;
-
-getfch_func _getfch=0;
-setfpos_func _setfpos=0;
-getfpos_func _getfpos=0;
 
 /*
 	Gets the value of a parameter
@@ -77,17 +75,15 @@ unsigned int i;
 /*
 	Initializes the interpreter
  */
-void _sbi_init(sbi_config_t* c)
+void _sbi_init(sbi_context_t* c)
 {
-	_sbi_config = c;
-	// Init
-	c->initui();
+    // reserve for future init uses.
 }
 
 /*
 	Begins program execution
  */
-unsigned int _sbi_begin(void)		// Returns:
+unsigned int _sbi_begin(sbi_context_t *ctx) 		// Returns:
 												// 					0: 	No errors
 												//					1: 	No function pointers for _getfch,
 												//							_setfpos and _getfpos
@@ -95,7 +91,7 @@ unsigned int _sbi_begin(void)		// Returns:
 												//					3:	Invalid program file
 {
 	// Check function pointers
-	if ((_getfch==0)||(_setfpos==0)||(_getfpos==0)) return 1;
+	if ((ctx->getfch==0)||(ctx->setfpos==0)||(ctx->getfpos==0)) return 1;
 	
 	// Read head
 	rd = _getfch();
@@ -139,7 +135,7 @@ unsigned int _sbi_begin(void)		// Returns:
 /*
 	Executes the program
  */
-unsigned int _sbi_run(void) // Runs a SBI program
+unsigned int _sbi_run(sbi_context_t *ctx)       // Runs a SBI program
 												// Returns:
 												// 					0: 	No errors
 												// 					1: 	Reached end (no exit found)
@@ -287,13 +283,13 @@ unsigned int _sbi_run(void) // Runs a SBI program
 	
 	_exec = 0;
 	
-	if (_intinqueue==1) _interrupt(_queuedint); // If there are interrupts in
+	if (_intinqueue==1) _interrupt(_queuedint, ctx); // If there are interrupts in
 																							// in the queue, do it
 	
 	return 0;
 }
 
-void _interrupt(const unsigned int id)
+void _interrupt(const unsigned int id, sbi_context_t* ctx)
 {
 	if (_exec==1) // Some code in execution, queue interrupt
 	{

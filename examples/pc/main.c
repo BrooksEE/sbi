@@ -3,25 +3,6 @@
 
 #include "pclib.h"
 
-FILE* f;
-
-int pos;
-
-byte getfch(void)
-{
-	return fgetc(f);
-}
-
-void setfpos(const unsigned int p)
-{
-	fseek (f, p, SEEK_SET);
-	return;
-}
-
-unsigned int getfpos(void)
-{
-	return (int)ftell(f);
-}
 
 int main(int argc, char** argv)
 {
@@ -34,20 +15,21 @@ int main(int argc, char** argv)
 	
 	if (!f) { printf("Can't open file!\n"); return 1; }
 
-	
 	// Init
-	_getfch=getfch;
-	_setfpos=setfpos;
-	_getfpos=getfpos;
+    sbi_context_t ctx;
 
-    sbi_config_t c;
-    c.debugn=debugn;
-    c.errorn=errorn;
-    c.initui=initui;
+	ctx.getfch=getfch;
+	ctx.setfpos=setfpos;
+	ctx.getfpos=getfpos;
+    ctx.debugn=debugn;
+    ctx.errorn=errorn;
+    ctx.sbi_user_funcs[0] = myfunc;
+    ctx.sbi_user_funcs[1] = msgbox; 
+    ctx.sbi_user_funcs[2] = getnum;
 
-	_sbi_init(&c); pos = 0;
+	_sbi_init(&ctx);
 	
-	int ret = _sbi_begin();
+	int ret = _sbi_begin(&ctx);
 	if (ret==1) printf("Initialization error (no function pointers)\n");
 	if (ret==2) printf("Initialization error (old format version)\n");
 	if (ret==3) printf("Initialization error (invalid program file)\n");
@@ -59,7 +41,7 @@ int main(int argc, char** argv)
 	
 	while (ret==0)
 	{
-		ret = _sbi_run();
+		ret = _sbi_run(&ctx);
 		//if (_kbhit()) // Key press interrupt
 		//{
 		//	_interrupt(2);

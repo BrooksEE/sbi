@@ -7,9 +7,10 @@
 
 #ifndef _SBI_H
 	#define _SBI_H
+    
+    // typedef
+	typedef unsigned char byte;
 
-	#include "funclib.h"
-	
 	// Configuration
 	#define VARIABLESNUM				64
 	#define USERFUNCTIONSN			16
@@ -54,24 +55,44 @@
 	#define _varid							0x04
 	#define _value							0xF4
 	
-	// User functions
-	extern void (*_sbifuncs[USERFUNCTIONSN])(byte[]);
-	
-	typedef byte (*getfch_func)(void);
-	typedef void (*setfpos_func)(const unsigned int);
-	typedef unsigned int (*getfpos_func)(void);
+    // all context functions take 2nd argument
+    // of sbi_context_t* taken from passid in
+    // context.
 
-    extern getfch_func _getfch;
-    extern setfpos_func _setfpos;
-    extern getfpos_func _getfpos;
+    struct sbi_context_t;
+
+	// User functions
+	typedef void (*sbi_user_func)(byte[], sbi_context_t*);
+
+	// Put here your debug code
+	typedef void(*debugn_func)(byte n, sbi_context_t*);
+
+	// Put here your error printing code
+	typedef void(*errorn_func)(byte n, sbi_context_t*);
+
+    // returns the next byte from the source sbi
+	typedef byte (*getfch_func)(sbi_context_t*);
+    // set the source sbi pos
+	typedef void (*setfpos_func)(const unsigned int, sbi_context_t*);
+    // get the source sbi pos
+	typedef unsigned int (*getfpos_func)(sbi_context_t*);
+	
+	struct sbi_context_t {
+		debugn_func debugn;
+		errorn_func errorn;
+        getfch_func getfch;
+        setfpos_func setfpos;
+        getfpos_func getfpos;
+	    sbi_user_func sbi_user_funcs[USERFUNCTIONSN];
+	};
 	
 	byte _getval(const byte type, const byte val);
 	unsigned int _setval(const byte type, const byte num, const byte val);
 	
-	void _sbi_init(sbi_config_t*);
-	unsigned int _sbi_begin(void);
-	unsigned int _sbi_run(void);
+	void _sbi_init(sbi_context_t*);
+	unsigned int _sbi_begin(sbi_context_t*);
+	unsigned int _sbi_run(sbi_context_t*);
 	
-	void _interrupt(const unsigned int id);
+	void _interrupt(const unsigned int id, sbi_context_t*);
 	
 #endif

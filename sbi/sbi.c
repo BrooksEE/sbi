@@ -7,6 +7,8 @@
 
 #include "sbi.h"
 
+#include <stdlib.h>
+
 sbi_config_t *_sbi_config;
 
 // Debug functions
@@ -27,6 +29,10 @@ unsigned int _queuedint = 0;
 // User functions
 void (*_sbifuncs[USERFUNCTIONSN])(byte[]);
 unsigned int _userfid = 0;
+
+getfch_func _getfch=0;
+setfpos_func _setfpos=0;
+getfpos_func _getfpos=0;
 
 /*
 	Gets the value of a parameter
@@ -92,8 +98,9 @@ unsigned int _sbi_begin(void)		// Returns:
 	if ((_getfch==0)||(_setfpos==0)||(_getfpos==0)) return 1;
 	
 	// Read head
-	if ((*_getfch)()!=HEADER_0) return 3;
-	rd = (*_getfch)();
+	rd = _getfch();
+	if (rd!=HEADER_0) return 3;
+	rd = _getfch();
 	if (rd!=HEADER_1) {
 		if ((rd==0x1B)||(rd==0x2B)||(rd==0x3B))
 			return 2;
@@ -102,28 +109,28 @@ unsigned int _sbi_begin(void)		// Returns:
 	}
 	
 	// Getting labels
-	if ((*_getfch)()!=LABELSECTION) return 3;
-	unsigned int ln = (*_getfch)();
-	_labels = malloc(ln * sizeof(int));
+	if (_getfch()!=LABELSECTION) return 3;
+	unsigned int ln = _getfch();
+	_labels = (unsigned int*)malloc(ln * sizeof(int));
 	unsigned int c = 0;
 	while (ln--)
 	{
-    _labels[c] = (*_getfch)() | ((*_getfch)() << 8);
+    _labels[c] = _getfch() | (_getfch() << 8);
     c++;
 	}
-	if ((*_getfch)()!=SEPARATOR) return 3;
+	if (_getfch()!=SEPARATOR) return 3;
 	
 	// Getting interrupts addresses
-	if ((*_getfch)()!=INTERRUPTSECTION) return 3;
-	ln = (*_getfch)();
-	_interrupts = malloc(ln + ln); //ln * sizeof(unsigned int) -> ln * 2 -> ln+ln
+	if (_getfch()!=INTERRUPTSECTION) return 3;
+	ln = _getfch();
+	_interrupts = (unsigned int*)malloc(ln + ln); //ln * sizeof(unsigned int) -> ln * 2 -> ln+ln
 	c = 0;
 	while (ln--)
 	{
-    _interrupts[c] = (*_getfch)() | ((*_getfch)() << 8);
+    _interrupts[c] = _getfch() | (_getfch() << 8);
     c++;
 	}
-	if ((*_getfch)()!=SEPARATOR) return 3;
+	if (_getfch()!=SEPARATOR) return 3;
 	
 	// Done
 	return 0;
@@ -143,135 +150,135 @@ unsigned int _sbi_run(void) // Runs a SBI program
 {
 	_exec = 1;
 	
-	rd = (*_getfch)();
+	rd = _getfch();
 	switch (rd)
 	{
 		case _istr_assign:
-			var1 = (*_getfch)();
-			_t[var1] = (*_getfch)();
+			var1 = _getfch();
+			_t[var1] = _getfch();
 			break;
 		case _istr_move:
-			var1 = (*_getfch)();
-			_t[var1] = _t[(*_getfch)()];
+			var1 = _getfch();
+			_t[var1] = _t[_getfch()];
 			break;
 		case _istr_add:
-			var1t = (*_getfch)();
-			var1 = (*_getfch)();
-			var2t = (*_getfch)();
-			var2 = (*_getfch)();
-			_t[(*_getfch)()] = _getval(var1t, var1) + _getval(var2t, var2);
+			var1t = _getfch();
+			var1 = _getfch();
+			var2t = _getfch();
+			var2 = _getfch();
+			_t[_getfch()] = _getval(var1t, var1) + _getval(var2t, var2);
 			break;
 		case _istr_sub:
-			var1t = (*_getfch)();
-			var1 = (*_getfch)();
-			var2t = (*_getfch)();
-			var2 = (*_getfch)();
-			_t[(*_getfch)()] = _getval(var1t, var1) - _getval(var2t, var2);
+			var1t = _getfch();
+			var1 = _getfch();
+			var2t = _getfch();
+			var2 = _getfch();
+			_t[_getfch()] = _getval(var1t, var1) - _getval(var2t, var2);
 			break;
 		case _istr_mul:
-			var1t = (*_getfch)();
-			var1 = (*_getfch)();
-			var2t = (*_getfch)();
-			var2 = (*_getfch)();
-			_t[(*_getfch)()] = _getval(var1t, var1) * _getval(var2t, var2);
+			var1t = _getfch();
+			var1 = _getfch();
+			var2t = _getfch();
+			var2 = _getfch();
+			_t[_getfch()] = _getval(var1t, var1) * _getval(var2t, var2);
 			break;
 		case _istr_div:
-			var1t = (*_getfch)();
-			var1 = (*_getfch)();
-			var2t = (*_getfch)();
-			var2 = (*_getfch)();
-			_t[(*_getfch)()] = _getval(var1t, var1) / _getval(var2t, var2);
+			var1t = _getfch();
+			var1 = _getfch();
+			var2t = _getfch();
+			var2 = _getfch();
+			_t[_getfch()] = _getval(var1t, var1) / _getval(var2t, var2);
 			break;
 		case _istr_incr:
-			_t[(*_getfch)()]++;
+			_t[_getfch()]++;
 			break;
 		case _istr_decr:
-			_t[(*_getfch)()]--;
+			_t[_getfch()]--;
 			break;
 		case _istr_inv:
-			var1 = (*_getfch)();
+			var1 = _getfch();
 			if (_t[var1]==0) _t[var1]=1; else _t[var1]=0;
 			break;
 		case _istr_tob:
-			var1 = (*_getfch)();
+			var1 = _getfch();
 			if (_t[var1]>0) _t[var1]=1; else _t[var1]=0;
 			break;
 		case _istr_cmp:
-			var1t = (*_getfch)();
-			var1 = (*_getfch)();
-			var2t = (*_getfch)();
-			var2 = (*_getfch)();
-			if (_getval(var1t, var1)==_getval(var2t, var2)) _t[(*_getfch)()]=1; else _t[(*_getfch)()]=0;
+			var1t = _getfch();
+			var1 = _getfch();
+			var2t = _getfch();
+			var2 = _getfch();
+			if (_getval(var1t, var1)==_getval(var2t, var2)) _t[_getfch()]=1; else _t[_getfch()]=0;
 			break;
 		case _istr_high:
-			var1t = (*_getfch)();
-			var1 = (*_getfch)();
-			var2t = (*_getfch)();
-			var2 = (*_getfch)();
-			if (_getval(var1t, var1)>_getval(var2t, var2)) _t[(*_getfch)()]=1; else _t[(*_getfch)()]=0;
+			var1t = _getfch();
+			var1 = _getfch();
+			var2t = _getfch();
+			var2 = _getfch();
+			if (_getval(var1t, var1)>_getval(var2t, var2)) _t[_getfch()]=1; else _t[_getfch()]=0;
 			break;
 		case _istr_low:
-			var1t = (*_getfch)();
-			var1 = (*_getfch)();
-			var2t = (*_getfch)();
-			var2 = (*_getfch)();
-			if (_getval(var1t, var1)<_getval(var2t, var2)) _t[(*_getfch)()]=1; else _t[(*_getfch)()]=0;
+			var1t = _getfch();
+			var1 = _getfch();
+			var2t = _getfch();
+			var2 = _getfch();
+			if (_getval(var1t, var1)<_getval(var2t, var2)) _t[_getfch()]=1; else _t[_getfch()]=0;
 			break;
 		case _istr_jump:
-			var1t = (*_getfch)();
-			var1 = (*_getfch)();
-			if ((*_getfch)() > 0)
+			var1t = _getfch();
+			var1 = _getfch();
+			if (_getfch() > 0)
 			{
 				for (i=RETURNADDRESSESN-2; i>0; i--) _returnaddresses[i+1] = _returnaddresses[i];
 				_returnaddresses[1] = _returnaddresses[0];
-				_returnaddresses[0] = (*_getfpos)();
+				_returnaddresses[0] = _getfpos();
 			}
-			(*_setfpos)(_labels[_getval(var1t, var1)]);
+			_setfpos(_labels[_getval(var1t, var1)]);
 			break;
 		case _istr_cmpjump:
-			var1t = (*_getfch)();
-			var1 = (*_getfch)();
-			var2t = (*_getfch)();
-			var2 = (*_getfch)();
-			var3t = (*_getfch)();
-			var3 = (*_getfch)();
-			if ((*_getfch)() > 0)
+			var1t = _getfch();
+			var1 = _getfch();
+			var2t = _getfch();
+			var2 = _getfch();
+			var3t = _getfch();
+			var3 = _getfch();
+			if (_getfch() > 0)
 			{
 				for (i=RETURNADDRESSESN-2; i>0; i--) _returnaddresses[i+1] = _returnaddresses[i];
 				_returnaddresses[1] = _returnaddresses[0];
-				_returnaddresses[0] = (*_getfpos)();
+				_returnaddresses[0] = _getfpos();
 			}
 			if (_getval(var1t, var1)==_getval(var2t, var2))
 			{
-				(*_setfpos)(_labels[_getval(var3t, var3)]);
+				_setfpos(_labels[_getval(var3t, var3)]);
 			}
 			break;
 		case _istr_ret:
-			(*_setfpos)(_returnaddresses[0]);
+			_setfpos(_returnaddresses[0]);
 			for (i=1; i<RETURNADDRESSESN; i++) _returnaddresses[i-1] = _returnaddresses[i];
 			break;
 		case _istr_debug:
-			var1t = (*_getfch)();
-			_debug(_getval(var1t, (*_getfch)()));
+			var1t = _getfch();
+			_debug(_getval(var1t, _getfch()));
 			break;
 		case _istr_error:
-			var1t = (*_getfch)();
-			_error(_getval(var1t, (*_getfch)()));
+			var1t = _getfch();
+			_error(_getval(var1t, _getfch()));
 			return 5;
 			break;
 		case _istr_sint:
-			var1t = (*_getfch)();
-			_userfid=_getval(var1t, (*_getfch)());
+			var1t = _getfch();
+			_userfid=_getval(var1t, _getfch());
 			break;
 		case _istr_int:
-			for (i=0; i<16; i++) b[i] = (*_getfch)();
+			for (i=0; i<16; i++) b[i] = _getfch();
 			_sbifuncs[_userfid](b);
 			break;
 		case _istr_exit:
 			return 2;
 			break;
 		case FOOTER_0:
-			if ((*_getfch)()==FOOTER_1) return 1; else return 4;
+			if (_getfch()==FOOTER_1) return 1; else return 4;
 		default:
 			_error(0xB1);
 			return 3;
@@ -297,9 +304,9 @@ void _interrupt(const unsigned int id)
 	
 	for (i=RETURNADDRESSESN-2; i>0; i--) _returnaddresses[i+1] = _returnaddresses[i];
 	_returnaddresses[1] = _returnaddresses[0];
-	_returnaddresses[0] = (*_getfpos)();
+	_returnaddresses[0] = _getfpos();
 	
-	(*_setfpos)(_interrupts[id]); // Set the program counter to interrupt's address
+	_setfpos(_interrupts[id]); // Set the program counter to interrupt's address
 	
 	_intinqueue = 0; // Be sure to clean the queue
 	

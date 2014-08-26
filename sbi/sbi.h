@@ -57,9 +57,13 @@
 	// User functions
 	extern void (*_sbifuncs[USERFUNCTIONSN])(byte[]);
 	
-	byte (*_getfch)(void);
-	void (*_setfpos)(const unsigned int);
-	unsigned int (*_getfpos)(void);
+	typedef byte (*getfch_func)(void);
+	typedef void (*setfpos_func)(const unsigned int);
+	typedef unsigned int (*getfpos_func)(void);
+
+    extern getfch_func _getfch;
+    extern setfpos_func _setfpos;
+    extern getfpos_func _getfpos;
 	
 	byte _getval(const byte type, const byte val);
 	unsigned int _setval(const byte type, const byte num, const byte val);

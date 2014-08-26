@@ -62,20 +62,20 @@
     struct sbi_context_t;
 
 	// User functions
-	typedef void (*sbi_user_func)(byte[], sbi_context_t*);
+	typedef void (*sbi_user_func)(byte[], struct sbi_context_t*);
 
 	// Put here your debug code
-	typedef void(*debugn_func)(byte n, sbi_context_t*);
+	typedef void(*debugn_func)(byte n, struct sbi_context_t*);
 
 	// Put here your error printing code
-	typedef void(*errorn_func)(byte n, sbi_context_t*);
+	typedef void(*errorn_func)(byte n, struct sbi_context_t*);
 
     // returns the next byte from the source sbi
-	typedef byte (*getfch_func)(sbi_context_t*);
+	typedef byte (*getfch_func)(struct sbi_context_t*);
     // set the source sbi pos
-	typedef void (*setfpos_func)(const unsigned int, sbi_context_t*);
+	typedef void (*setfpos_func)(const unsigned int, struct sbi_context_t*);
     // get the source sbi pos
-	typedef unsigned int (*getfpos_func)(sbi_context_t*);
+	typedef unsigned int (*getfpos_func)(struct sbi_context_t*);
 	
 	struct sbi_context_t {
 		debugn_func debugn;
@@ -84,15 +84,15 @@
         setfpos_func setfpos;
         getfpos_func getfpos;
 	    sbi_user_func sbi_user_funcs[USERFUNCTIONSN];
-	};
+	} ;
 	
 	byte _getval(const byte type, const byte val);
 	unsigned int _setval(const byte type, const byte num, const byte val);
 	
-	void _sbi_init(sbi_context_t*);
-	unsigned int _sbi_begin(sbi_context_t*);
-	unsigned int _sbi_run(sbi_context_t*);
+	void _sbi_init(struct sbi_context_t*);
+	unsigned int _sbi_begin(struct sbi_context_t*);
+	unsigned int _sbi_run(struct sbi_context_t*);
 	
-	void _interrupt(const unsigned int id, sbi_context_t*);
+	void _interrupt(const unsigned int id, struct sbi_context_t*);
 	
 #endif

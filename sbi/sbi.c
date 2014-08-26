@@ -74,7 +74,7 @@ unsigned int i;
 /*
 	Initializes the interpreter
  */
-void _sbi_init(sbi_context_t* c)
+void _sbi_init(struct sbi_context_t* c)
 {
     // reserve for future init uses.
 }
@@ -82,7 +82,7 @@ void _sbi_init(sbi_context_t* c)
 /*
 	Begins program execution
  */
-unsigned int _sbi_begin(sbi_context_t *ctx) 		// Returns:
+unsigned int _sbi_begin(struct sbi_context_t *ctx) 		// Returns:
 												// 					0: 	No errors
 												//					1: 	No function pointers for _getfch,
 												//							_setfpos and _getfpos
@@ -134,7 +134,7 @@ unsigned int _sbi_begin(sbi_context_t *ctx) 		// Returns:
 /*
 	Executes the program
  */
-unsigned int _sbi_run(sbi_context_t *ctx)       // Runs a SBI program
+unsigned int _sbi_run(struct sbi_context_t *ctx)       // Runs a SBI program
 												// Returns:
 												// 					0: 	No errors
 												// 					1: 	Reached end (no exit found)
@@ -288,7 +288,7 @@ unsigned int _sbi_run(sbi_context_t *ctx)       // Runs a SBI program
 	return 0;
 }
 
-void _interrupt(const unsigned int id, sbi_context_t* ctx)
+void _interrupt(const unsigned int id, struct sbi_context_t* ctx)
 {
 	if (_exec==1) // Some code in execution, queue interrupt
 	{

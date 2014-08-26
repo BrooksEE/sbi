@@ -1,5 +1,7 @@
 #include <stdio.h>
-#include "sbi.h"
+#include <sbi.h>
+
+#include "pclib.h"
 
 FILE* f;
 
@@ -31,12 +33,19 @@ int main(int argc, char** argv)
 	f = fopen((char*)argv[1], "rb");
 	
 	if (!f) { printf("Can't open file!\n"); return 1; }
+
 	
 	// Init
-	_getfch=&getfch;
-	_setfpos=&setfpos;
-	_getfpos=&getfpos;
-	_sbi_init(); pos = 0;
+	_getfch=getfch;
+	_setfpos=setfpos;
+	_getfpos=getfpos;
+
+    sbi_config_t c;
+    c.debugn=debugn;
+    c.errorn=errorn;
+    c.initui=initui;
+
+	_sbi_init(&c); pos = 0;
 	
 	int ret = _sbi_begin();
 	if (ret==1) printf("Initialization error (no function pointers)\n");
@@ -51,11 +60,11 @@ int main(int argc, char** argv)
 	while (ret==0)
 	{
 		ret = _sbi_run();
-		if (_kbhit()) // Key press interrupt
-		{
-			_interrupt(2);
-			getch();
-		}
+		//if (_kbhit()) // Key press interrupt
+		//{
+		//	_interrupt(2);
+		//	getch();
+		//}
 	}
 	
 	fclose(f);

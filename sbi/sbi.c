@@ -29,7 +29,6 @@ unsigned int _intinqueue = 0;
 unsigned int _queuedint = 0;
 
 // User functions
-void (*_sbifuncs[USERFUNCTIONSN])(byte[]);
 unsigned int _userfid = 0;
 
 /*
@@ -268,7 +267,7 @@ unsigned int _sbi_run(sbi_context_t *ctx)       // Runs a SBI program
 			break;
 		case _istr_int:
 			for (i=0; i<16; i++) b[i] = _getfch();
-			_sbifuncs[_userfid](b);
+			ctx->sbi_user_funcs[_userfid](b,ctx);
 			break;
 		case _istr_exit:
 			return 2;

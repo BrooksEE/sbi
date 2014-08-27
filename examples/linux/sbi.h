@@ -15,7 +15,7 @@
 	#define THREADMAXNUM				10
 	
 	// Multithreading configuration
-		#define _SBI_MULTITHREADING_ENABLE
+	//	#define _SBI_MULTITHREADING_ENABLE
   		#define _SBI_MULTITHREADING_EQUALTIME
 	
 	// Define 'byte' variable type

@@ -164,6 +164,8 @@ unsigned int _sbi_run(void *rt)       // Runs a SBI program
 												//					4: 	Can't understand byte
 												//					5: 	User error
 {
+    if (!rt) return 5;
+
 	RT(rt)->_exec = 1;
 	
 	byte rd = _getfch();
@@ -315,14 +317,17 @@ unsigned int _sbi_run(void *rt)       // Runs a SBI program
 	return 0;
 }
 
-void _interrupt(const unsigned int id, void *rt)
+int _interrupt(const unsigned int id, void *rt)    // RETURNS
+                                                   // 0 - no error
+                                                   // 5 - user error
 {
+    if (!rt) return 5;
     unsigned int i;
 	if (RT(rt)->_exec==1) // Some code in execution, queue interrupt
 	{
 		RT(rt)->_intinqueue = 1;
 		RT(rt)->_queuedint = id;
-		return;
+		return 0;
 	}
 	
 	for (i=RETURNADDRESSESN-2; i>0; i--) RT(rt)->_returnaddresses[i+1] = RT(rt)->_returnaddresses[i];
@@ -333,5 +338,5 @@ void _interrupt(const unsigned int id, void *rt)
 	
 	RT(rt)->_intinqueue = 0; // Be sure to clean the queue
 	
-	return;
+	return 0;
 }

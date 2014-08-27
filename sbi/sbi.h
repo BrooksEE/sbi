@@ -108,6 +108,6 @@
      **/
     void* _userdata(void*);
 	
-	void _interrupt(const unsigned int id, void*);
+	int _interrupt(const unsigned int id, void*);
 	
 #endif

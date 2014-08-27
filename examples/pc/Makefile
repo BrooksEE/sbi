@@ -12,10 +12,10 @@ INCLUDES=../../sbi
 all: $(TARGET) $(SBIS)
 
 $(TARGET): $(OBJS)
-	g++ -o $@ $^
+	g++ -o $@ $(LDFLAGS) $^
 
 %.o: %.c $(HEADERS)
-	g++ -c -I$(INCLUDES) -o $@ $<
+	g++ -c $(CCFLAGS) -I$(INCLUDES) -o $@ $<
 
 %.sbi: %.sasm $(TARGET)
 	$(SASMC) -i $< -o $@ -cl

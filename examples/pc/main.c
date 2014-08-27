@@ -27,9 +27,9 @@ int main(int argc, char** argv)
     ctx.sbi_user_funcs[1] = msgbox; 
     ctx.sbi_user_funcs[2] = getnum;
 
-	_sbi_init(&ctx);
+	void *v = _sbi_init(&ctx, 0);
 	
-	int ret = _sbi_begin(&ctx);
+	int ret = _sbi_begin(v);
 	if (ret==1) printf("Initialization error (no function pointers)\n");
 	if (ret==2) printf("Initialization error (old format version)\n");
 	if (ret==3) printf("Initialization error (invalid program file)\n");
@@ -41,7 +41,7 @@ int main(int argc, char** argv)
 	
 	while (ret==0)
 	{
-		ret = _sbi_run(&ctx);
+		ret = _sbi_run(v);
 		//if (_kbhit()) // Key press interrupt
 		//{
 		//	_interrupt(2);
@@ -50,6 +50,8 @@ int main(int argc, char** argv)
 	}
 	
 	fclose(f);
+
+    _sbi_cleanup(v);
 	
 	if (ret==1) printf("Program reached end (no exit found)\n");
 	if (ret==2) printf("Program exited (no errors)\n");

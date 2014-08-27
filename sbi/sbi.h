@@ -12,7 +12,7 @@
 	typedef unsigned char byte;
 
 	// Configuration
-	#define VARIABLESNUM				64
+	#define VARIABLESNUM	     	64
 	#define USERFUNCTIONSN			16
 	#define RETURNADDRESSESN		16
 	
@@ -59,40 +59,55 @@
     // of sbi_context_t* taken from passid in
     // context.
 
-    struct sbi_context_t;
-
 	// User functions
-	typedef void (*sbi_user_func)(byte[], struct sbi_context_t*);
+	typedef void (*sbi_user_func)(byte[], void*);
 
 	// Put here your debug code
-	typedef void(*debugn_func)(byte n, struct sbi_context_t*);
+	typedef void(*debugn_func)(byte n, void*);
 
 	// Put here your error printing code
-	typedef void(*errorn_func)(byte n, struct sbi_context_t*);
+	typedef void(*errorn_func)(byte n, void*);
 
     // returns the next byte from the source sbi
-	typedef byte (*getfch_func)(struct sbi_context_t*);
+	typedef byte (*getfch_func)(void*);
     // set the source sbi pos
-	typedef void (*setfpos_func)(const unsigned int, struct sbi_context_t*);
+	typedef void (*setfpos_func)(const unsigned int, void*);
     // get the source sbi pos
-	typedef unsigned int (*getfpos_func)(struct sbi_context_t*);
+	typedef unsigned int (*getfpos_func)(void*);
 	
-	struct sbi_context_t {
+	typedef struct {
 		debugn_func debugn;
 		errorn_func errorn;
         getfch_func getfch;
         setfpos_func setfpos;
         getfpos_func getfpos;
 	    sbi_user_func sbi_user_funcs[USERFUNCTIONSN];
-	} ;
+	} sbi_context_t;
 	
-	byte _getval(const byte type, const byte val);
-	unsigned int _setval(const byte type, const byte num, const byte val);
+	byte _getval(const byte type, const byte val, void*);
+	unsigned int _setval(const byte type, const byte num, const byte val, void*);
 	
-	void _sbi_init(struct sbi_context_t*);
-	unsigned int _sbi_begin(struct sbi_context_t*);
-	unsigned int _sbi_run(struct sbi_context_t*);
+    /**
+     *   Function: _sbi_init
+     *   Param: ctx initialization values for current run context
+     *   Param: userdata any type of additional userdata you may wish to use.  
+     *                   can be NULL
+     *   Return: void* for library state.  You must save this and pass it in
+     *                 for each unique run context.
+     **/
+	void* _sbi_init(sbi_context_t* ctx, void* userdata);
+	unsigned int _sbi_begin(void*);
+	unsigned int _sbi_run(void*);
+
+    // must be called to free resources
+    // unless _sbi_init returned 0
+    void _sbi_cleanup(void*);
+
+    /**
+     * returns your userdata from the runtime context
+     **/
+    void* _userdata(void*);
 	
-	void _interrupt(const unsigned int id, struct sbi_context_t*);
+	void _interrupt(const unsigned int id, void*);
 	
 #endif

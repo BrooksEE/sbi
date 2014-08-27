@@ -9,34 +9,52 @@
 
 #include <stdlib.h>
 
+
+
+
 // function macros for easy access 
-#define _debug(d)				ctx->debugn(d,ctx)
-#define _error(d)				ctx->errorn(d,ctx)
-#define _getfch()               ctx->getfch(ctx)
-#define _setfpos(p)             ctx->setfpos(p,ctx)
-#define _getfpos(p)             ctx->getfpos(ctx)
+#define RT(v)                   ((sbi_runtime_t*)v)
+
+#define _debug(d)				RT(rt)->_userCtx->debugn(d,rt)
+#define _error(d)				RT(rt)->_userCtx->errorn(d,rt)
+#define _getfch()               RT(rt)->_userCtx->getfch(rt)
+#define _setfpos(p)             RT(rt)->_userCtx->setfpos(p,rt)
+#define _getfpos(p)             RT(rt)->_userCtx->getfpos(rt)
 
 
-// Variables, labels and subroutines
-byte _t[VARIABLESNUM];
-unsigned int* _labels;
-unsigned int _returnaddresses[RETURNADDRESSESN];
+// internal structure for carrying program state
 
-// Interrupts
-unsigned int* _interrupts;
-unsigned int _exec = 0;
-unsigned int _intinqueue = 0;
-unsigned int _queuedint = 0;
+typedef struct {
+    // Variables, labels and subroutines
+    byte _t[VARIABLESNUM];
+    unsigned int* _labels;
+    unsigned int _returnaddresses[RETURNADDRESSESN];
 
-// User functions
-unsigned int _userfid = 0;
+    // Interrupts
+    unsigned int* _interrupts;
+    unsigned int _exec;
+    unsigned int _intinqueue;
+    unsigned int _queuedint;
+
+   // User functions
+   unsigned int _userfid;
+
+   sbi_context_t * _userCtx; 
+   void * _userdata;
+ 
+} sbi_runtime_t;
+
+void* _userdata(void* rt) {
+  return RT(rt)->_userdata; 
+}
+
 
 /*
 	Gets the value of a parameter
  */
-byte _getval(const byte type, const byte val)
+byte _getval(const byte type, const byte val, void *rt)
 {
-	if (type==_varid) return _t[val]; else return val;
+	if (type==_varid) return RT(rt)->_t[val]; else return val;
 }
 
 /*
@@ -47,42 +65,44 @@ byte _getval(const byte type, const byte val)
 			1: 	The specified parameter
 			is not a variable
  */
-unsigned int _setval(const byte type, const byte num, const byte val) 
+unsigned int _setval(const byte type, const byte num, const byte val, void *rt) 
 {
 	if (type==_varid)
 	{
-		_t[num]=val;
+		RT(rt)->_t[num]=val;
 		return 0;
 	} else {
 		return 1;
 	}
 }
 
-/*
-	Common variables
- */
-byte rd;
-unsigned int var1t;
-unsigned int var1;
-unsigned int var2t;
-unsigned int var2;
-unsigned int var3t;
-unsigned int var3;
-byte b[16];
-unsigned int i;
 
 /*
 	Initializes the interpreter
  */
-void _sbi_init(struct sbi_context_t* c)
+void* _sbi_init(sbi_context_t* c, void* d)
 {
-    // reserve for future init uses.
+    sbi_runtime_t* rt = (sbi_runtime_t*)calloc(sizeof(sbi_runtime_t), 1);
+    if (!rt) return 0;
+
+    rt->_userCtx=c;
+    rt->_userdata=d;
+    return rt;
+}
+
+void _sbi_cleanup( void* rt){
+    if (!rt) return;
+    if (RT(rt)->_labels)
+        free ( RT(rt)->_labels );
+    if (RT(rt)->_interrupts)
+        free ( RT(rt)->_interrupts);
+    free(rt);
 }
 
 /*
 	Begins program execution
  */
-unsigned int _sbi_begin(struct sbi_context_t *ctx) 		// Returns:
+unsigned int _sbi_begin(void* rt)       		// Returns:
 												// 					0: 	No errors
 												//					1: 	No function pointers for _getfch,
 												//							_setfpos and _getfpos
@@ -90,10 +110,11 @@ unsigned int _sbi_begin(struct sbi_context_t *ctx) 		// Returns:
 												//					3:	Invalid program file
 {
 	// Check function pointers
-	if ((ctx->getfch==0)||(ctx->setfpos==0)||(ctx->getfpos==0)) return 1;
+    if (RT(rt)->_userCtx==0) return 1;
+	if ((RT(rt)->_userCtx->getfch==0)||(RT(rt)->_userCtx->setfpos==0)||(RT(rt)->_userCtx->getfpos==0)) return 1;
 	
 	// Read head
-	rd = _getfch();
+	byte rd = _getfch();
 	if (rd!=HEADER_0) return 3;
 	rd = _getfch();
 	if (rd!=HEADER_1) {
@@ -106,11 +127,11 @@ unsigned int _sbi_begin(struct sbi_context_t *ctx) 		// Returns:
 	// Getting labels
 	if (_getfch()!=LABELSECTION) return 3;
 	unsigned int ln = _getfch();
-	_labels = (unsigned int*)malloc(ln * sizeof(int));
+	RT(rt)->_labels = (unsigned int*)malloc(ln * sizeof(int));
 	unsigned int c = 0;
 	while (ln--)
 	{
-    _labels[c] = _getfch() | (_getfch() << 8);
+    RT(rt)->_labels[c] = _getfch() | (_getfch() << 8);
     c++;
 	}
 	if (_getfch()!=SEPARATOR) return 3;
@@ -118,11 +139,11 @@ unsigned int _sbi_begin(struct sbi_context_t *ctx) 		// Returns:
 	// Getting interrupts addresses
 	if (_getfch()!=INTERRUPTSECTION) return 3;
 	ln = _getfch();
-	_interrupts = (unsigned int*)malloc(ln + ln); //ln * sizeof(unsigned int) -> ln * 2 -> ln+ln
+	RT(rt)->_interrupts = (unsigned int*)malloc(ln + ln); //ln * sizeof(unsigned int) -> ln * 2 -> ln+ln
 	c = 0;
 	while (ln--)
 	{
-    _interrupts[c] = _getfch() | (_getfch() << 8);
+    RT(rt)->_interrupts[c] = _getfch() | (_getfch() << 8);
     c++;
 	}
 	if (_getfch()!=SEPARATOR) return 3;
@@ -134,7 +155,7 @@ unsigned int _sbi_begin(struct sbi_context_t *ctx) 		// Returns:
 /*
 	Executes the program
  */
-unsigned int _sbi_run(struct sbi_context_t *ctx)       // Runs a SBI program
+unsigned int _sbi_run(void *rt)       // Runs a SBI program
 												// Returns:
 												// 					0: 	No errors
 												// 					1: 	Reached end (no exit found)
@@ -143,92 +164,96 @@ unsigned int _sbi_run(struct sbi_context_t *ctx)       // Runs a SBI program
 												//					4: 	Can't understand byte
 												//					5: 	User error
 {
-	_exec = 1;
+	RT(rt)->_exec = 1;
 	
-	rd = _getfch();
+	byte rd = _getfch();
+    byte var1, var1t, var2, var2t, var3, var3t;
+    unsigned int i;
+    byte b[16];
+
 	switch (rd)
 	{
 		case _istr_assign:
 			var1 = _getfch();
-			_t[var1] = _getfch();
+			RT(rt)->_t[var1] = _getfch();
 			break;
 		case _istr_move:
 			var1 = _getfch();
-			_t[var1] = _t[_getfch()];
+			RT(rt)->_t[var1] = RT(rt)->_t[_getfch()];
 			break;
 		case _istr_add:
 			var1t = _getfch();
 			var1 = _getfch();
 			var2t = _getfch();
 			var2 = _getfch();
-			_t[_getfch()] = _getval(var1t, var1) + _getval(var2t, var2);
+			RT(rt)->_t[_getfch()] = _getval(var1t, var1, rt) + _getval(var2t, var2, rt);
 			break;
 		case _istr_sub:
 			var1t = _getfch();
 			var1 = _getfch();
 			var2t = _getfch();
 			var2 = _getfch();
-			_t[_getfch()] = _getval(var1t, var1) - _getval(var2t, var2);
+			RT(rt)->_t[_getfch()] = _getval(var1t, var1, rt) - _getval(var2t, var2, rt);
 			break;
 		case _istr_mul:
 			var1t = _getfch();
 			var1 = _getfch();
 			var2t = _getfch();
 			var2 = _getfch();
-			_t[_getfch()] = _getval(var1t, var1) * _getval(var2t, var2);
+			RT(rt)->_t[_getfch()] = _getval(var1t, var1, rt) * _getval(var2t, var2, rt);
 			break;
 		case _istr_div:
 			var1t = _getfch();
 			var1 = _getfch();
 			var2t = _getfch();
 			var2 = _getfch();
-			_t[_getfch()] = _getval(var1t, var1) / _getval(var2t, var2);
+			RT(rt)->_t[_getfch()] = _getval(var1t, var1, rt) / _getval(var2t, var2, rt);
 			break;
 		case _istr_incr:
-			_t[_getfch()]++;
+			RT(rt)->_t[_getfch()]++;
 			break;
 		case _istr_decr:
-			_t[_getfch()]--;
+			RT(rt)->_t[_getfch()]--;
 			break;
 		case _istr_inv:
 			var1 = _getfch();
-			if (_t[var1]==0) _t[var1]=1; else _t[var1]=0;
+			if (RT(rt)->_t[var1]==0) RT(rt)->_t[var1]=1; else RT(rt)->_t[var1]=0;
 			break;
 		case _istr_tob:
 			var1 = _getfch();
-			if (_t[var1]>0) _t[var1]=1; else _t[var1]=0;
+			if (RT(rt)->_t[var1]>0) RT(rt)->_t[var1]=1; else RT(rt)->_t[var1]=0;
 			break;
 		case _istr_cmp:
 			var1t = _getfch();
 			var1 = _getfch();
 			var2t = _getfch();
 			var2 = _getfch();
-			if (_getval(var1t, var1)==_getval(var2t, var2)) _t[_getfch()]=1; else _t[_getfch()]=0;
+			if (_getval(var1t, var1, rt)==_getval(var2t, var2, rt)) RT(rt)->_t[_getfch()]=1; else RT(rt)->_t[_getfch()]=0;
 			break;
 		case _istr_high:
 			var1t = _getfch();
 			var1 = _getfch();
 			var2t = _getfch();
 			var2 = _getfch();
-			if (_getval(var1t, var1)>_getval(var2t, var2)) _t[_getfch()]=1; else _t[_getfch()]=0;
+			if (_getval(var1t, var1, rt)>_getval(var2t, var2, rt)) RT(rt)->_t[_getfch()]=1; else RT(rt)->_t[_getfch()]=0;
 			break;
 		case _istr_low:
 			var1t = _getfch();
 			var1 = _getfch();
 			var2t = _getfch();
 			var2 = _getfch();
-			if (_getval(var1t, var1)<_getval(var2t, var2)) _t[_getfch()]=1; else _t[_getfch()]=0;
+			if (_getval(var1t, var1, rt)<_getval(var2t, var2, rt)) RT(rt)->_t[_getfch()]=1; else RT(rt)->_t[_getfch()]=0;
 			break;
 		case _istr_jump:
 			var1t = _getfch();
 			var1 = _getfch();
 			if (_getfch() > 0)
 			{
-				for (i=RETURNADDRESSESN-2; i>0; i--) _returnaddresses[i+1] = _returnaddresses[i];
-				_returnaddresses[1] = _returnaddresses[0];
-				_returnaddresses[0] = _getfpos();
+				for (i=RETURNADDRESSESN-2; i>0; i--) RT(rt)->_returnaddresses[i+1] = RT(rt)->_returnaddresses[i];
+				RT(rt)->_returnaddresses[1] = RT(rt)->_returnaddresses[0];
+				RT(rt)->_returnaddresses[0] = _getfpos();
 			}
-			_setfpos(_labels[_getval(var1t, var1)]);
+			_setfpos(RT(rt)->_labels[_getval(var1t, var1, rt)]);
 			break;
 		case _istr_cmpjump:
 			var1t = _getfch();
@@ -239,35 +264,37 @@ unsigned int _sbi_run(struct sbi_context_t *ctx)       // Runs a SBI program
 			var3 = _getfch();
 			if (_getfch() > 0)
 			{
-				for (i=RETURNADDRESSESN-2; i>0; i--) _returnaddresses[i+1] = _returnaddresses[i];
-				_returnaddresses[1] = _returnaddresses[0];
-				_returnaddresses[0] = _getfpos();
+				for (i=RETURNADDRESSESN-2; i>0; i--) RT(rt)->_returnaddresses[i+1] = RT(rt)->_returnaddresses[i];
+				RT(rt)->_returnaddresses[1] = RT(rt)->_returnaddresses[0];
+				RT(rt)->_returnaddresses[0] = _getfpos();
 			}
-			if (_getval(var1t, var1)==_getval(var2t, var2))
+			if (_getval(var1t, var1, rt)==_getval(var2t, var2, rt))
 			{
-				_setfpos(_labels[_getval(var3t, var3)]);
+				_setfpos(RT(rt)->_labels[_getval(var3t, var3, rt)]);
 			}
 			break;
 		case _istr_ret:
-			_setfpos(_returnaddresses[0]);
-			for (i=1; i<RETURNADDRESSESN; i++) _returnaddresses[i-1] = _returnaddresses[i];
+			_setfpos(RT(rt)->_returnaddresses[0]);
+			for (i=1; i<RETURNADDRESSESN; i++) RT(rt)->_returnaddresses[i-1] = RT(rt)->_returnaddresses[i];
 			break;
 		case _istr_debug:
 			var1t = _getfch();
-			_debug(_getval(var1t, _getfch()));
+			_debug(_getval(var1t, _getfch(), rt));
 			break;
 		case _istr_error:
 			var1t = _getfch();
-			_error(_getval(var1t, _getfch()));
+			_error(_getval(var1t, _getfch(), rt));
 			return 5;
 			break;
 		case _istr_sint:
 			var1t = _getfch();
-			_userfid=_getval(var1t, _getfch());
+			RT(rt)->_userfid=_getval(var1t, _getfch(), rt);
 			break;
 		case _istr_int:
-			for (i=0; i<16; i++) b[i] = _getfch();
-			ctx->sbi_user_funcs[_userfid](b,ctx);
+            {
+			   for (i=0; i<16; i++) b[i] = _getfch();
+			   RT(rt)->_userCtx->sbi_user_funcs[RT(rt)->_userfid](b,rt);
+            }
 			break;
 		case _istr_exit:
 			return 2;
@@ -280,30 +307,31 @@ unsigned int _sbi_run(struct sbi_context_t *ctx)       // Runs a SBI program
 			break;
 	}
 	
-	_exec = 0;
+	RT(rt)->_exec = 0;
 	
-	if (_intinqueue==1) _interrupt(_queuedint, ctx); // If there are interrupts in
+	if (RT(rt)->_intinqueue==1) _interrupt(RT(rt)->_queuedint, rt); // If there are interrupts in
 																							// in the queue, do it
 	
 	return 0;
 }
 
-void _interrupt(const unsigned int id, struct sbi_context_t* ctx)
+void _interrupt(const unsigned int id, void *rt)
 {
-	if (_exec==1) // Some code in execution, queue interrupt
+    unsigned int i;
+	if (RT(rt)->_exec==1) // Some code in execution, queue interrupt
 	{
-		_intinqueue = 1;
-		_queuedint = id;
+		RT(rt)->_intinqueue = 1;
+		RT(rt)->_queuedint = id;
 		return;
 	}
 	
-	for (i=RETURNADDRESSESN-2; i>0; i--) _returnaddresses[i+1] = _returnaddresses[i];
-	_returnaddresses[1] = _returnaddresses[0];
-	_returnaddresses[0] = _getfpos();
+	for (i=RETURNADDRESSESN-2; i>0; i--) RT(rt)->_returnaddresses[i+1] = RT(rt)->_returnaddresses[i];
+	RT(rt)->_returnaddresses[1] = RT(rt)->_returnaddresses[0];
+	RT(rt)->_returnaddresses[0] = _getfpos();
 	
-	_setfpos(_interrupts[id]); // Set the program counter to interrupt's address
+	_setfpos(RT(rt)->_interrupts[id]); // Set the program counter to interrupt's address
 	
-	_intinqueue = 0; // Be sure to clean the queue
+	RT(rt)->_intinqueue = 0; // Be sure to clean the queue
 	
 	return;
 }

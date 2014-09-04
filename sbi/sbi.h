@@ -15,8 +15,11 @@
 	#define THREADMAXNUM				10
 	
 	// Multithreading configuration
-		#define _SBI_MULTITHREADING_ENABLE
-  		#define _SBI_MULTITHREADING_EQUALTIME
+    #ifndef _SBI_MULTITHREADING_ENABLE 
+        #ifndef _SBI_MULTITHREADING_EQUALTIME
+  		#define _SBI_MULTITHREADING_EQUALTIME 1
+        #endif
+    #endif
 	
 	// Define 'byte' variable type
 	typedef unsigned char byte;
@@ -121,7 +124,7 @@
 		// Multithreading variables
 		extern SBITHREAD* _sbi_threads[THREADMAXNUM];
 		extern SBITHREAD* _sbi_currentthread;
-		#ifdef _SBI_MULTITHREADING_EQUALTIME
+		#if _SBI_MULTITHREADING_EQUALTIME
 			SBITHREADNUM _sbi_currentthreadn;
 		#endif
 	#else
@@ -132,7 +135,8 @@
 	extern void (*_sbifuncs[USERFUNCTIONSN])(byte[]);
 	
 	#ifndef _SBI_MULTITHREADING_ENABLE
-		byte (*_getfch)(void);
+        typedef byte (*getfch_func)(void);
+		extern getfch_func _getfch; 
 	#endif
 	
 	byte _getval(const byte type, const byte val);

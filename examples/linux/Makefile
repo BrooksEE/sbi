@@ -1,24 +1,26 @@
-all: sbi progs
 
 SBIDIR=../../sbi
 SRC=main.c $(SBIDIR)/sbi.c
 OBJS=$(patsubst %.c, %.o, $(SRC))
 
-sbi: $(OBJS)
-	gcc -o $@ $^
 
 %.o:%.c $(SBIDIR)/sbi.h
 	gcc -c -o $@ -I$(SBIDIR) $<
 
-progsrc: $(wildcard programs/*.sasm ) 
-progs = $(patsubst %.sasm, %.sbi, $(progsrc))
+progsrc=$(wildcard programs/*.sasm)
+sbis=$(patsubst %.sasm, %.sbi, $(progsrc))
 SASMC=../../sasmc/sasmc
+
+all: sbi $(sbis) 
+
+sbi: $(OBJS)
+	gcc -o $@ $^
 
 $(SASMC): $(wildcard ../../sasmc/*.cpp) $(wildcard ../../sasmc/*.h) 
 	make -C ../../sasmc
 
-%.sbi:%.sasm $(SASMC) 
+%.sbi:%.sasm $(SASMC)
 	$(SASMC) -i $< -o $@ -s -cl
 
 clean:
-	rm -f $(OBJS) $(progs) 
+	rm -f $(OBJS) $(sbis)

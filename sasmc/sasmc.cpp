@@ -66,7 +66,7 @@ typedef unsigned char byte;
 	Program global variables
 */
 fstream f; // .SBI
-fstream fp; // .SBI.DT
+fstream fp; // .SBI.PRG
 int linen = 1;
 byte labelsn = 0;
 int labels[256];
@@ -76,6 +76,15 @@ long progln=0;
 char* inname;
 char* outname;
 char* prgname;
+
+/*
+	Enumerations
+*/
+typedef enum
+{
+	WRONGNUM,
+	WRONGTYPE
+} CERRORTYPE;
 
 /*
 	Command-line arguments parsing functions
@@ -164,6 +173,25 @@ void wsbi(void)
 }
 
 /*
+	Errors displaying functions
+*/
+void cerror(string command, CERRORTYPE type)
+{
+	switch (type)
+	{
+		case WRONGNUM:
+			cerror(command, WRONGNUM);
+			break;
+		case WRONGTYPE:
+			printf("%i: (%s) Wrong type of parameters\n", linen, command.c_str());
+			break;
+		default:
+			printf("%i: (%s) Syntax error\n", linen, command.c_str());
+			break;
+	}
+}
+
+/*
 	Compilation functions
 */
 int pline(string command, int argn, vector<string>& args)
@@ -193,8 +221,8 @@ int pline(string command, int argn, vector<string>& args)
 	}
 	if (command.compare("assign")==0)
 	{
-		if (argn!=2) { printf("%i: (%s) Wrong number of parameters\n", linen, command.c_str()); return 1; }
-		if ((argt[0]!=varid)||(argt[1]!=value)) { printf("%i: (%s) Wrong type of parameters\n", command.c_str(), linen); return 1; }
+		if (argn!=2) { cerror(command, WRONGNUM); return 1; }
+		if ((argt[0]!=varid)||(argt[1]!=value)) { cerror(command, WRONGTYPE); return 1; }
 		wb(assign);
 		wb(argv[0]);
 		wb(argv[1]);
@@ -202,8 +230,8 @@ int pline(string command, int argn, vector<string>& args)
 	}
 	if (command.compare("move")==0)
 	{
-		if (argn!=2) { printf("%i: (%s) Wrong number of parameters\n", linen, command.c_str()); return 1; }
-		if ((argt[0]!=varid)||(argt[1]!=varid)) { printf("%i: (%s) Wrong type of parameters\n", command.c_str(), linen); return 1; }
+		if (argn!=2) { cerror(command, WRONGNUM); return 1; }
+		if ((argt[0]!=varid)||(argt[1]!=varid)) { cerror(command, WRONGTYPE); return 1; }
 		wb(move);
 		wb(argv[0]);
 		wb(argv[1]);
@@ -211,8 +239,8 @@ int pline(string command, int argn, vector<string>& args)
 	}
 	if (command.compare("add")==0)
 	{
-		if (argn!=3) { printf("%i: (%s) Wrong number of parameters\n", linen, command.c_str()); return 1; }
-		if (argt[2]!=varid) { printf("%i: (%s) Wrong type of parameters\n", command.c_str(), linen); return 1; }
+		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
+		if (argt[2]!=varid) { cerror(command, WRONGTYPE); return 1; }
 		wb(add);
 		wb(argt[0]);
 		wb(argv[0]);
@@ -223,8 +251,8 @@ int pline(string command, int argn, vector<string>& args)
 	}
 	if (command.compare("sub")==0)
 	{
-		if (argn!=3) { printf("%i: (%s) Wrong number of parameters\n", linen, command.c_str()); return 1; }
-		if (argt[2]!=varid) { printf("%i: (%s) Wrong type of parameters\n", command.c_str(), linen); return 1; }
+		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
+		if (argt[2]!=varid) { cerror(command, WRONGTYPE); return 1; }
 		wb(sub);
 		wb(argt[0]);
 		wb(argv[0]);
@@ -235,8 +263,8 @@ int pline(string command, int argn, vector<string>& args)
 	}
 	if (command.compare("mul")==0)
 	{
-		if (argn!=3) { printf("%i: (%s) Wrong number of parameters\n", linen, command.c_str()); return 1; }
-		if (argt[2]!=varid) { printf("%i: (%s) Wrong type of parameters\n", command.c_str(), linen); return 1; }
+		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
+		if (argt[2]!=varid) { cerror(command, WRONGTYPE); return 1; }
 		wb(mul);
 		wb(argt[0]);
 		wb(argv[0]);
@@ -247,8 +275,8 @@ int pline(string command, int argn, vector<string>& args)
 	}
 	if (command.compare("div")==0)
 	{
-		if (argn!=3) { printf("%i: (%s) Wrong number of parameters\n", linen, command.c_str()); return 1; }
-		if (argt[2]!=varid) { printf("%i: (%s) Wrong type of parameters\n", command.c_str(), linen); return 1; }
+		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
+		if (argt[2]!=varid) { cerror(command, WRONGTYPE); return 1; }
 		wb(div);
 		wb(argt[0]);
 		wb(argv[0]);
@@ -259,40 +287,40 @@ int pline(string command, int argn, vector<string>& args)
 	}
 	if (command.compare("incr")==0)
 	{
-		if (argn!=1) { printf("%i: (%s) Wrong number of parameters\n", linen, command.c_str()); return 1; }
-		if (argt[0]!=varid) { printf("%i: (%s) Wrong type of parameters\n", command.c_str(), linen); return 1; }
+		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
+		if (argt[0]!=varid) { cerror(command, WRONGTYPE); return 1; }
 		wb(incr);
 		wb(argv[0]);
 		return 0;
 	}
 	if (command.compare("decr")==0)
 	{
-		if (argn!=1) { printf("%i: (%s) Wrong number of parameters\n", linen, command.c_str()); return 1; }
-		if (argt[0]!=varid) { printf("%i: (%s) Wrong type of parameters\n", command.c_str(), linen); return 1; }
+		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
+		if (argt[0]!=varid) { cerror(command, WRONGTYPE); return 1; }
 		wb(decr);
 		wb(argv[0]);
 		return 0;
 	}
 	if (command.compare("inv")==0)
 	{
-		if (argn!=1) { printf("%i: (%s) Wrong number of parameters\n", linen, command.c_str()); return 1; }
-		if (argt[0]!=varid) { printf("%i: (%s) Wrong type of parameters\n", command.c_str(), linen); return 1; }
+		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
+		if (argt[0]!=varid) { cerror(command, WRONGTYPE); return 1; }
 		wb(inv);
 		wb(argv[0]);
 		return 0;
 	}
 	if (command.compare("tob")==0)
 	{
-		if (argn!=1) { printf("%i: (%s) Wrong number of parameters\n", linen, command.c_str()); return 1; }
-		if (argt[0]!=varid) { printf("%i: (%s) Wrong type of parameters\n", command.c_str(), linen); return 1; }
+		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
+		if (argt[0]!=varid) { cerror(command, WRONGTYPE); return 1; }
 		wb(tob);
 		wb(argv[0]);
 		return 0;
 	}
 	if (command.compare("cmp")==0)
 	{
-		if (argn!=3) { printf("%i: (%s) Wrong number of parameters\n", linen, command.c_str()); return 1; }
-		if (argt[2]!=varid) { printf("%i: (%s) Wrong type of parameters\n", command.c_str(), linen); return 1; }
+		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
+		if (argt[2]!=varid) { cerror(command, WRONGTYPE); return 1; }
 		wb(cmp);
 		wb(argt[0]);
 		wb(argv[0]);
@@ -303,8 +331,8 @@ int pline(string command, int argn, vector<string>& args)
 	}
 	if (command.compare("high")==0)
 	{
-		if (argn!=3) { printf("%i: (%s) Wrong number of parameters\n", linen, command.c_str()); return 1; }
-		if (argt[2]!=varid) { printf("%i: (%s) Wrong type of parameters\n", command.c_str(), linen); return 1; }
+		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
+		if (argt[2]!=varid) { cerror(command, WRONGTYPE); return 1; }
 		wb(high);
 		wb(argt[0]);
 		wb(argv[0]);
@@ -315,8 +343,8 @@ int pline(string command, int argn, vector<string>& args)
 	}
 	if (command.compare("low")==0)
 	{
-		if (argn!=3) { printf("%i: (%s) Wrong number of parameters\n", linen, command.c_str()); return 1; }
-		if (argt[2]!=varid) { printf("%i: (%s) Wrong type of parameters\n", command.c_str(), linen); return 1; }
+		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
+		if (argt[2]!=varid) { cerror(command, WRONGTYPE); return 1; }
 		wb(low);
 		wb(argt[0]);
 		wb(argv[0]);
@@ -327,24 +355,24 @@ int pline(string command, int argn, vector<string>& args)
 	}
 	if (command.compare("label")==0)
 	{
-		if (argn!=1) { printf("%i: (%s) Wrong number of parameters\n", linen, command.c_str()); return 1; }
-		if (argt[0]!=value) { printf("%i: (%s) Wrong type of parameters\n", command.c_str(), linen); return 1; }
+		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
+		if (argt[0]!=value) { cerror(command, WRONGTYPE); return 1; }
 		labels[argv[0]] = progln;
 		if ((argv[0]+1) > labelsn) labelsn = argv[0]+1;
 		return 0;
 	}
 	if (command.compare("sig")==0)
 	{
-		if (argn!=1) { printf("%i: (%s) Wrong number of parameters\n", linen, command.c_str()); return 1; }
-		if (argt[0]!=value) { printf("%i: (%s) Wrong type of parameters\n", command.c_str(), linen); return 1; }
+		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
+		if (argt[0]!=value) { cerror(command, WRONGTYPE); return 1; }
 		interrupts[argv[0]] = progln;
 		if ((argv[0]+1) > interruptsn) interruptsn = argv[0]+1;
 		return 0;
 	}
 	if (command.compare("jump")==0)
 	{
-		if (argn!=2) { printf("%i: (%s) Wrong number of parameters\n", linen, command.c_str()); return 1; }
-		if (argt[1]!=value) { printf("%i: (%s) Wrong type of parameters\n", command.c_str(), linen); return 1; }
+		if (argn!=2) { cerror(command, WRONGNUM); return 1; }
+		if (argt[1]!=value) { cerror(command, WRONGTYPE); return 1; }
 		wb(jump);
 		wb(argt[0]);
 		wb(argv[0]);
@@ -353,8 +381,8 @@ int pline(string command, int argn, vector<string>& args)
 	}
 	if (command.compare("cmpjump")==0)
 	{
-		if (argn!=4) { printf("%i: (%s) Wrong number of parameters\n", linen, command.c_str()); return 1; }
-		if (argt[3]!=value) { printf("%i: (%s) Wrong type of parameters\n", command.c_str(), linen); return 1; }
+		if (argn!=4) { cerror(command, WRONGNUM); return 1; }
+		if (argt[3]!=value) { cerror(command, WRONGTYPE); return 1; }
 		wb(cmpjump);
 		wb(argt[0]);
 		wb(argv[0]);
@@ -367,13 +395,13 @@ int pline(string command, int argn, vector<string>& args)
 	}
 	if (command.compare("ret")==0)
 	{
-		if (argn!=0) { printf("%i: (%s) Wrong number of parameters\n", linen, command.c_str()); return 1; }
+		if (argn!=0) { cerror(command, WRONGNUM); return 1; }
 		wb(_ret);
 		return 0;
 	}
 	if (command.compare("debug")==0)
 	{
-		if (argn!=1) { printf("%i: (%s) Wrong number of parameters\n", linen, command.c_str()); return 1; }
+		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
 		wb(debug);
 		wb(argt[0]);
 		wb(argv[0]);
@@ -381,7 +409,7 @@ int pline(string command, int argn, vector<string>& args)
 	}
 	if (command.compare("error")==0)
 	{
-		if (argn!=1) { printf("%i: (%s) Wrong number of parameters\n", linen, command.c_str()); return 1; }
+		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
 		wb(error);
 		wb(argt[0]);
 		wb(argv[0]);
@@ -389,7 +417,7 @@ int pline(string command, int argn, vector<string>& args)
 	}
 	if (command.compare("sint")==0)
 	{
-		if (argn!=1) { printf("%i: (%s) Wrong number of parameters\n", linen, command.c_str()); return 1; }
+		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
 		wb(sint);
 		wb(argt[0]);
 		wb(argv[0]);
@@ -407,7 +435,7 @@ int pline(string command, int argn, vector<string>& args)
 	}
 	if (command.compare("exit")==0)
 	{
-		if (argn!=0) { printf("%i: (%s) Wrong number of parameters\n", linen, command.c_str()); return 1; }
+		if (argn!=0) { cerror(command, WRONGNUM); return 1; }
 		wb(exit);
 		return 0;
 	}
@@ -435,55 +463,55 @@ int main (int argc, char** argv)
 	for (byte i=0; i<255; i++) labels[i]=0;
 	
 	inname = getCmdOption(argv, argv + argc, "-i");
-  fstream file(inname, ios::in);
+	fstream file(inname, ios::in);
 
-  if(cmdOptionExists(argv, argv + argc, "-o"))
-  	outname = getCmdOption(argv, argv + argc, "-o");
-  else
-  	outname = (char*)"out.sbi";
+	if(cmdOptionExists(argv, argv + argc, "-o"))
+		outname = getCmdOption(argv, argv + argc, "-o");
+	else
+		outname = (char*)"out.sbi";
 	
 	char buf[128];
-  strcpy(buf, outname);
-  strcat(buf, ".prg");
+	strcpy(buf, outname);
+	strcat(buf, ".prg");
  	prgname = (char*)buf;
 	
  	f.open(outname, ios::out | ios::binary);
  	fp.open(prgname, ios::out | ios::binary);
 
-  if (!file) { printf("Can't open .SASM file for reading!\n"); return 1; }
-  if (!f) { printf("Can't open .SBI file for writing!\n"); return 1; }
-  if (!fp) { printf("Can't open .SBI.PRG file for writing!\n"); return 1; }
+	if (!file) { printf("Can't open .SASM file for reading!\n"); return 1; }
+	if (!f) { printf("Can't open .SBI file for writing!\n"); return 1; }
+	if (!fp) { printf("Can't open .SBI.PRG file for writing!\n"); return 1; }
   
-  if(cmdOptionExists(argv, argv + argc, "-s")) silent = true;
-  if(cmdOptionExists(argv, argv + argc, "-cl")) clean = true;
+	if(cmdOptionExists(argv, argv + argc, "-s")) silent = true;
+	if(cmdOptionExists(argv, argv + argc, "-cl")) clean = true;
   
-  if (silent==false) printf("SASMC %s :: Assembling %s :: Please wait... ", VERSION_STR, inname);
+	if (silent==false) printf("SASMC %s :: Assembling %s :: Please wait... ", VERSION_STR, inname);
   
-  string line;
+	string line;
 	
 	while(std::getline(file, line))
 	{
-    Tokenizer str;
-    string token;
-    string command;
-    vector<string> tokens(16);
-    int cnt = 0;
-    int ret;
+		Tokenizer str;
+		string token;
+		string command;
+		vector<string> tokens(16);
+		int cnt = 0;
+		int ret;
+	    	
+		if (line.find(';')!=-1) line = line.substr(0, line.find(';'));
+		if (line!="")
+		{
+			str.set(line, " \t");
     
-    if (line.find(';')!=-1) line = line.substr(0, line.find(';'));
-    if (line!="")
-    {
-    str.set(line, " \t");
-    
-    while((token = str.next()) != "")
-    {
-      if (cnt==0) command = token; else tokens[cnt-1] = token;
-      cnt++;
-    }
-    
-    int nt = cnt-1;
-    ret = pline(command.c_str(), nt, tokens);
-    if (ret>0) { f.close(); fp.close(); file.close(); remove(outname); remove(prgname); return 1; }
+			while((token = str.next()) != "")
+			{
+				if (cnt==0) command = token; else tokens[cnt-1] = token;
+				cnt++;
+			}
+	    		
+			int nt = cnt-1;
+			ret = pline(command.c_str(), nt, tokens);
+			if (ret>0) { f.close(); fp.close(); file.close(); remove(outname); remove(prgname); return 1; }
 		}
 		
 		linen++;
@@ -504,5 +532,5 @@ int main (int argc, char** argv)
 		if (silent==false) printf("Done!\n");
 	}
 	
-  return 0;
+	return 0;
 }

@@ -9,6 +9,8 @@
 
 #include "funclib.h"
 
+#include <stdlib.h>
+
 // Debug functions
 #define _debug(d)				debugn(d)
 #define _error(d)				errorn(d)
@@ -20,10 +22,11 @@
 	RETADDR _returnaddresses[RETURNADDRESSESN];
 	PCOUNT p;
 	USERFUNCID _userfid;
+    getfch_func _getfch;
 #else
 	SBITHREAD* _sbi_threads[THREADMAXNUM];
 	SBITHREAD* _sbi_currentthread;
-	#ifdef _SBI_MULTITHREADING_EQUALTIME
+	#if _SBI_MULTITHREADING_EQUALTIME
 		SBITHREADNUM _sbi_currentthreadn;
 	#endif
 #endif
@@ -110,7 +113,7 @@ void _sbi_init(void)
 		int i;
 		for (i=0; i<THREADMAXNUM; i++) _sbi_threads[i] = NULL;
 		_sbi_currentthread = NULL;
-		#ifdef _SBI_MULTITHREADING_EQUALTIME
+		#if _SBI_MULTITHREADING_EQUALTIME
 			_sbi_currentthreadn = 0;
 		#endif
 	#else
@@ -615,7 +618,7 @@ void _sbi_init(void)
 	*/
 	unsigned int _sbi_stepall(void)
 	{
-		#ifndef _SBI_MULTITHREADING_EQUALTIME
+		#if !_SBI_MULTITHREADING_EQUALTIME
 			int c = 0;
 			int i;
 			for (i=0; i<THREADMAXNUM; i++)

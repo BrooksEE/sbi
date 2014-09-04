@@ -34,11 +34,7 @@ int main(int argc, char** argv)
 	
 	// Init
 	_getfch=getfch;
-    _setfpos=setfpos;
-    _getfpos=getfpos;
 
-	byte i;
-	for (i=0; i<sizeof(buffer); i++) buffer[i]=fgetc(f);
 	_sbi_init(); pos=0;
 	
 	int ret = _sbi_begin();

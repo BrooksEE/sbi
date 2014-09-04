@@ -1,21 +1,24 @@
 #include <stdio.h>
-#include "sbi.h"
+#include <sbi.h>
 
 FILE* f;
-byte lastslot=0;
-byte buffer[32];
+
+int pos;
 
 byte getfch(void)
 {
-	byte slot=((int)(p/sizeof(buffer)));
-	byte i;
-	if (slot!=lastslot)
-	{
-		fseek (f, slot*sizeof(buffer), SEEK_SET);
-		for (i=0; i<sizeof(buffer); i++) buffer[i]=fgetc(f);
-	}
-	lastslot=slot;
-	return buffer[(p++)-(lastslot*sizeof(buffer))];
+	return fgetc(f);
+}
+
+void setfpos(const unsigned int p)
+{
+	fseek (f, p, SEEK_SET);
+	return;
+}
+
+unsigned int getfpos(void)
+{
+	return (int)ftell(f);
 }
 
 int main(int argc, char** argv)
@@ -30,11 +33,13 @@ int main(int argc, char** argv)
 	if (!f) { printf("Can't open file!\n"); return 1; }
 	
 	// Init
-	_getfch=&getfch;
+	_getfch=getfch;
+    _setfpos=setfpos;
+    _getfpos=getfpos;
 
 	byte i;
 	for (i=0; i<sizeof(buffer); i++) buffer[i]=fgetc(f);
-	_sbi_init();
+	_sbi_init(); pos=0;
 	
 	int ret = _sbi_begin();
 	if (ret==1) printf("Initialization error (no function pointers)\n");

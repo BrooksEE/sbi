@@ -12,7 +12,7 @@
 // function macros for easy access 
 #define _debug(d)				ctx->debugn(d,ctx)
 #define _error(d)				ctx->errorn(d,ctx)
-#define _getfch()               ctx->getfch(ctx)
+#define _getfch()               ctx->getfch(p++,ctx)
 //#define _setfpos(p)             ctx->setfpos(p,ctx)
 //#define _getfpos(p)             ctx->getfpos(ctx)
 

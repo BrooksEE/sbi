@@ -149,14 +149,14 @@
 	typedef void (*sbi_user_func)(byte[], struct sbi_context_t*);
 
 	// Put here your debug code
-	typedef void(*debugn_func)(byte n, struct sbi_context_t*);
+	typedef void(*debugn_func)(int n, struct sbi_context_t*);
 
 	// Put here your error printing code
-	typedef void(*errorn_func)(byte n, struct sbi_context_t*);
+	typedef void(*errorn_func)(int n, struct sbi_context_t*);
 
     #ifndef _SBI_MULTITHREADING_ENABLE
     // returns the next byte from the source sbi
-	typedef byte (*getfch_func)(struct sbi_context_t*);
+	typedef byte (*getfch_func)(int p, struct sbi_context_t*);
     #endif
 
     //// set the source sbi pos

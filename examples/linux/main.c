@@ -7,20 +7,10 @@ FILE* f;
 
 int pos;
 
-byte getfch(void)
+byte getfch(int p, struct sbi_context_t *ctx)
 {
-	return fgetc(f);
-}
-
-void setfpos(const unsigned int p)
-{
-	fseek (f, p, SEEK_SET);
-	return;
-}
-
-unsigned int getfpos(void)
-{
-	return (int)ftell(f);
+    fseek(f,p, SEEK_SET);
+	return fgetc(f); 
 }
 
 int main(int argc, char** argv)
@@ -40,7 +30,8 @@ int main(int argc, char** argv)
     ctx.errorn=errorn;
     ctx.getfch=getfch;
     ctx.sbi_user_funcs[0] = myfunc;
-    ctx.sbi_user_funcs[1] = getnum;
+    ctx.sbi_user_funcs[1] = msgbox;
+    ctx.sbi_user_funcs[2] = getnum;
     
 
 	_sbi_init(&ctx); pos=0;

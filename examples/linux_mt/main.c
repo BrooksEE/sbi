@@ -1,26 +1,22 @@
 #include <stdio.h>
-#include "sbi.h"
+#include <sbi.h>
+
+#include "funclib.h"
 
 FILE* f1;
 FILE* f2;
 
-byte getfch1(PCOUNT* pp)
+byte getfch1(PCOUNT p, struct sbi_context_t *ctx)
 {
-	PCOUNT p = *pp;
 	fseek (f1, p, SEEK_SET);
 	byte r = fgetc(f1);
-	p++;
-	*pp = p;
 	return r;
 }
 
-byte getfch2(PCOUNT* pp)
+byte getfch2(PCOUNT p, struct sbi_context_t *ctx)
 {
-	PCOUNT p = *pp;
 	fseek (f2, p, SEEK_SET);
 	byte r = fgetc(f2);
-	p++;
-	*pp = p;
 	return r;
 }
 
@@ -29,17 +25,21 @@ int main(int argc, char** argv)
 	printf("\nSBI Multithreading Runtime for Linux\n\n");
 	
 	// Open executable
-	f1 = fopen("prog1.sbi", "rb");
-	f2 = fopen("prog2.sbi", "rb");
-	/*if (argc!=2) { printf("Wrong arguments\n\nUse:\n %s <program.sbi>\n", argv[0]); return 8; }
+	if (argc!=3) { printf("Wrong arguments\n\nUse:\n %s <program.sbi> <program2.sbi>\n", argv[0]); return 8; }
 	printf("Loading %s...\n", argv[1]);
-	f = fopen((char*)argv[1], "rb");
-	if (!f) { printf("Can't open file!\n"); return 1; }
-	*/
-	if (!f1 || !f2) { printf("Can't open files!\n"); return 1; }
+	f1 = fopen((char*)argv[1], "rb");
+	if (!f1) { printf("Can't open file %s\n", argv[1]); return 1; }
+    f2 = fopen((char*)argv[2], "rb");
+    if (!f2) { printf("Can't open file %s\n", argv[2]); return 1; }
 	
 	// Init
-	_sbi_init();
+    struct sbi_context_t ctx;
+    ctx.debugn=debugn;
+    ctx.errorn=errorn;
+    ctx.sbi_user_funcs[0] = myfunc;
+    ctx.sbi_user_funcs[1] = msgbox;
+    ctx.sbi_user_funcs[2] = getnum;
+	_sbi_init(&ctx);
 	
 	SBISTREAM* s1 = _sbi_createstream(getfch1);
 	SBISTREAM* s2 = _sbi_createstream(getfch2);
@@ -47,7 +47,7 @@ int main(int argc, char** argv)
 	SBITHREAD* t1 = _sbi_createthread(s1);
 	SBITHREAD* t2 = _sbi_createthread(s2);
 	
-	int ret = _sbi_loadthread(t1);
+	int ret = _sbi_loadthread(t1, &ctx);
 	if (ret==-1) printf("T1: Initialization error (no function pointers)\n");
 	if (ret==-2) printf("T1: Initialization error (old format version)\n");
 	if (ret==-3) printf("T1: Initialization error (invalid program file)\n");
@@ -56,7 +56,7 @@ int main(int argc, char** argv)
 	
 	if (ret<0) return 1;
 
-	ret = _sbi_loadthread(t2);
+	ret = _sbi_loadthread(t2, &ctx);
 	if (ret==-1) printf("T2: Initialization error (no function pointers)\n");
 	if (ret==-2) printf("T2: Initialization error (old format version)\n");
 	if (ret==-3) printf("T2: Initialization error (invalid program file)\n");
@@ -73,7 +73,7 @@ int main(int argc, char** argv)
 	int c = 0;
 	while (_sbi_running()>0)
 	{
-		ret = _sbi_stepall();
+		ret = _sbi_stepall(&ctx);
 		c++;
 		if (c == 29) _sbi_startthread(t2);
 	}

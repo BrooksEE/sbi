@@ -86,6 +86,9 @@
 	#define _varid							0x04
 	#define _value							0xF4
 
+    struct sbi_context_t;
+    // returns the next byte from the source sbi
+	typedef byte (*getfch_func)(PCOUNT p, struct sbi_context_t*);
 	
 	#ifdef _SBI_MULTITHREADING_ENABLE
 		// SBI multithreading eums
@@ -109,7 +112,7 @@
 		// SBI structures
 		typedef struct
 		{
-			byte (*_getfch)(PCOUNT*);
+		    getfch_func getfch;	
 			PCOUNT p;
 		} SBISTREAM;
 		
@@ -135,15 +138,10 @@
 		extern PCOUNT p;
 	#endif
 	
-	// User functions
-	extern void (*_sbifuncs[USERFUNCTIONSN])(byte[]);
-	
-
     // all context functions take 2nd argument
     // of sbi_context_t* taken from passid in
     // context.
 
-    struct sbi_context_t;
 
 	// User functions
 	typedef void (*sbi_user_func)(byte[], struct sbi_context_t*);
@@ -154,10 +152,6 @@
 	// Put here your error printing code
 	typedef void(*errorn_func)(int n, struct sbi_context_t*);
 
-    #ifndef _SBI_MULTITHREADING_ENABLE
-    // returns the next byte from the source sbi
-	typedef byte (*getfch_func)(int p, struct sbi_context_t*);
-    #endif
 
     //// set the source sbi pos
 	//typedef void (*setfpos_func)(const unsigned int, sbi_context_t*);
@@ -188,14 +182,14 @@
 	#endif
 	
 	#ifdef _SBI_MULTITHREADING_ENABLE
-		SBISTREAM* _sbi_createstream(byte (*_getfch)(PCOUNT*));
+		SBISTREAM* _sbi_createstream(getfch_func);
 		
 		SBITHREAD* _sbi_createthread(SBISTREAM* stream);
-		unsigned int _sbi_loadthread(SBITHREAD* thread);
+		unsigned int _sbi_loadthread(SBITHREAD* thread, struct sbi_context_t*);
 		void _sbi_removethread(SBITHREAD* thread);
 		
-		unsigned int _sbi_step(SBITHREAD* thread);
-		unsigned int _sbi_stepall(void);
+		unsigned int _sbi_step(SBITHREAD* thread, struct sbi_context_t*);
+		unsigned int _sbi_stepall(struct sbi_context_t*);
 		
 		unsigned int _sbi_running(void);
 		

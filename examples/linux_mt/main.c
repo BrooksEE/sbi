@@ -45,6 +45,7 @@ int main(int argc, char** argv)
 	{
 		ret = sbi_step(rt);
 	}
+    sbi_cleanup(rt);
 	
 	printf("All threads terminated\n");
 	

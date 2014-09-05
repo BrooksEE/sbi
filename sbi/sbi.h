@@ -113,7 +113,10 @@
 	unsigned int sbi_running(void*);
 	unsigned int sbi_step();
 	void interrupt(const INTERRUPT id, void*);
+    void sbi_cleanup(void*); // free resources after program run
 
+    // accessor functions can be used
+    // in user_function context to get/set parameters.
 	byte getval(const byte type, const byte val, void*);
 	unsigned int setval(const byte type, const byte num, const byte val, void*);
 	

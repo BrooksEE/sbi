@@ -204,7 +204,7 @@ unsigned int sbi_begin(void *rt) {
 
 
 /*
-	Steps the program of one instruction (no multithreading)
+	Steps the program of one instruction
 
 	Returns:
 		0: 	No errors
@@ -440,167 +440,6 @@ void _sbi_removethread(SBITHREAD* thread)
 }
 
 /*
-	Steps the specified thread of one instruction (only in multithreading mode)
-
-	Returns:
-		0: 	No errors
-		1: 	Reached end (no exit found)
-		2: 	Program exited
-		3: 	Wrong instruction code
-		4: 	Can't understand byte
-		5: 	User error
-*/
-//unsigned int sbi_step(void * rt)
-//{
-//	_sbi_currentthread = thread;
-//
-//    return _sbi_step_internal(ctx,thread);
-	
-	//_exec = 1;
-	//
-	//rd = (*thread->stream->_getfch)(&thread->stream->p);
-	//switch (rd)
-	//{
-	//	case _istr_assign:
-	//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
-	//		thread->_t[var1] = (*thread->stream->_getfch)(&thread->stream->p);
-	//		break;
-	//	case _istr_move:
-	//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
-	//		thread->_t[var1] = thread->_t[(*thread->stream->_getfch)(&thread->stream->p)];
-	//		break;
-	//	case _istr_add:
-	//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
-	//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
-	//		var2t = (*thread->stream->_getfch)(&thread->stream->p);
-	//		var2 = (*thread->stream->_getfch)(&thread->stream->p);
-	//		thread->_t[(*thread->stream->_getfch)(&thread->stream->p)] = _getval(var1t, var1) + _getval(var2t, var2);
-	//		break;
-	//	case _istr_sub:
-	//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
-	//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
-	//		var2t = (*thread->stream->_getfch)(&thread->stream->p);
-	//		var2 = (*thread->stream->_getfch)(&thread->stream->p);
-	//		thread->_t[(*thread->stream->_getfch)(&thread->stream->p)] = _getval(var1t, var1) - _getval(var2t, var2);
-	//		break;
-	//	case _istr_mul:
-	//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
-	//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
-	//		var2t = (*thread->stream->_getfch)(&thread->stream->p);
-	//		var2 = (*thread->stream->_getfch)(&thread->stream->p);
-	//		thread->_t[(*thread->stream->_getfch)(&thread->stream->p)] = _getval(var1t, var1) * _getval(var2t, var2);
-	//		break;
-	//	case _istr_div:
-	//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
-	//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
-	//		var2t = (*thread->stream->_getfch)(&thread->stream->p);
-	//		var2 = (*thread->stream->_getfch)(&thread->stream->p);
-	//		thread->_t[(*thread->stream->_getfch)(&thread->stream->p)] = _getval(var1t, var1) / _getval(var2t, var2);
-	//		break;
-	//	case _istr_incr:
-	//		thread->_t[(*thread->stream->_getfch)(&thread->stream->p)]++;
-	//		break;
-	//	case _istr_decr:
-	//		thread->_t[(*thread->stream->_getfch)(&thread->stream->p)]--;
-	//		break;
-	//	case _istr_inv:
-	//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
-	//		if (thread->_t[var1]==0) thread->_t[var1]=1; else thread->_t[var1]=0;
-	//		break;
-	//	case _istr_tob:
-	//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
-	//		if (thread->_t[var1]>0) thread->_t[var1]=1; else thread->_t[var1]=0;
-	//		break;
-	//	case _istr_cmp:
-	//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
-	//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
-	//		var2t = (*thread->stream->_getfch)(&thread->stream->p);
-	//		var2 = (*thread->stream->_getfch)(&thread->stream->p);
-	//		if (_getval(var1t, var1)==_getval(var2t, var2)) thread->_t[(*thread->stream->_getfch)(&thread->stream->p)]=1; else thread->_t[(*thread->stream->_getfch)(&thread->stream->p)]=0;
-	//		break;
-	//	case _istr_high:
-	//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
-	//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
-	//		var2t = (*thread->stream->_getfch)(&thread->stream->p);
-	//		var2 = (*thread->stream->_getfch)(&thread->stream->p);
-	//		if (_getval(var1t, var1)>_getval(var2t, var2)) thread->_t[(*thread->stream->_getfch)(&thread->stream->p)]=1; else thread->_t[(*thread->stream->_getfch)(&thread->stream->p)]=0;
-	//		break;
-	//	case _istr_low:
-	//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
-	//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
-	//		var2t = (*thread->stream->_getfch)(&thread->stream->p);
-	//		var2 = (*thread->stream->_getfch)(&thread->stream->p);
-	//		if (_getval(var1t, var1)<_getval(var2t, var2)) thread->_t[(*thread->stream->_getfch)(&thread->stream->p)]=1; else thread->_t[(*thread->stream->_getfch)(&thread->stream->p)]=0;
-	//		break;
-	//	case _istr_jump:
-	//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
-	//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
-	//		if ((*thread->stream->_getfch)(&thread->stream->p) > 0)
-	//		{
-	//			for (i=RETURNADDRESSESN-2; i>0; i--) thread->_returnaddresses[i+1] = thread->_returnaddresses[i];
-	//			thread->_returnaddresses[1] = thread->_returnaddresses[0];
-	//			thread->_returnaddresses[0] = thread->stream->p;
-	//		}
-	//		thread->stream->p = thread->_labels[_getval(var1t, var1)];
-	//		break;
-	//	case _istr_cmpjump:
-	//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
-	//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
-	//		var2t = (*thread->stream->_getfch)(&thread->stream->p);
-	//		var2 = (*thread->stream->_getfch)(&thread->stream->p);
-	//		var3t = (*thread->stream->_getfch)(&thread->stream->p);
-	//		var3 = (*thread->stream->_getfch)(&thread->stream->p);
-	//		if ((*thread->stream->_getfch)(&thread->stream->p) > 0)
-	//		{
-	//			for (i=RETURNADDRESSESN-2; i>0; i--) thread->_returnaddresses[i+1] = thread->_returnaddresses[i];
-	//			thread->_returnaddresses[1] = thread->_returnaddresses[0];
-	//			thread->_returnaddresses[0] = thread->stream->p;
-	//		}
-	//		if (_getval(var1t, var1)==_getval(var2t, var2))
-	//		{
-	//			thread->stream->p = thread->_labels[_getval(var3t, var3)];
-	//		}
-	//		break;
-	//	case _istr_ret:
-	//		thread->stream->p = thread->_returnaddresses[0];
-	//		for (i=1; i<RETURNADDRESSESN; i++) thread->_returnaddresses[i-1] = thread->_returnaddresses[i];
-	//		break;
-	//	case _istr_debug:
-	//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
-	//		_debug(_getval(var1t, (*thread->stream->_getfch)(&thread->stream->p)));
-	//		break;
-	//	case _istr_error:
-	//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
-	//		_error(_getval(var1t, (*thread->stream->_getfch)(&thread->stream->p)));
-	//		return 5;
-	//		break;
-	//	case _istr_sint:
-	//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
-	//		thread->_userfid=_getval(var1t, (*thread->stream->_getfch)(&thread->stream->p));
-	//		break;
-	//	case _istr_int:
-	//		for (i=0; i<16; i++) b[i] = (*thread->stream->_getfch)(&thread->stream->p);
-	//		ctx->sbi_user_funcs[thread->_userfid](b, ctx);
-	//		break;
-	//	case _istr_exit:
-	//		return 2;
-	//		break;
-	//	case FOOTER_0:
-	//		if ((*thread->stream->_getfch)(&thread->stream->p)==FOOTER_1) return 1; else return 4;
-	//	default:
-	//		_error(0xB1);
-	//		return 3;
-	//		break;
-	//}
-	//
-	//_exec = 0;
-	//
-	//if (_intinqueue) _interrupt(_intinqueue - 1); // If there are interrupts in the queue, do it
-	//
-	//return 0;
-//}
-
-/*
 	Step all threads of one instruction
 	Returns the number of threads "stepped"
 */
@@ -706,3 +545,18 @@ void interrupt(const unsigned int id, void* rt)
 	
 	return;
 }
+
+void sbi_cleanup(void *rt) {
+    int i;
+    for (i=0;i<THREADMAXNUM;++i) {
+      if (RT->_sbi_threads[i]) {
+        free( RT->_sbi_threads[i]->stream );
+        free( RT->_sbi_threads[i]->_interrupts);
+        free( RT->_sbi_threads[i]->_labels);
+        free ( RT->_sbi_threads[i] );
+      } else break;
+    }
+
+    free(rt);
+}
+

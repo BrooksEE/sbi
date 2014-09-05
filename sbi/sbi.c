@@ -40,6 +40,9 @@ typedef struct
 	RETADDR _returnaddresses[RETURNADDRESSESN];
     unsigned int raddr_cnt;
 	USERFUNCID _userfid;
+    byte registers[REG_SIZE];
+    byte stack[STACK_SIZE];
+    unsigned int stackp;
 } SBITHREAD;
     
 // internal runtime structure for global api
@@ -259,8 +262,32 @@ unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 			var1 = _getfch();
 			var2t = _getfch();
 			var2 = _getfch();
+            // TODO check div by 0
 			_T[_getfch()] = _getval(var1t, var1, rt) / _getval(var2t, var2, rt);
 			break;
+        case _istr_push:
+            if (thread->stackp>=STACK_SIZE-1) {
+                _error(0xb4); // TODO error codes (overflow)
+                return 3;
+            }
+            var1t=_getfch();
+            var1 = _getfch();
+            thread->stack[thread->stackp++] = _getval(var1t,var1,rt);
+            break;
+        case _istr_pop:
+            {
+                if (thread->stackp==0) {
+                    _error(0xb5); // underflow
+                    return 3;
+                }
+                byte n = _getfch();
+                byte val = thread->stack[--thread->stackp];
+                if (n) {
+                    var1=_getfch();
+                    _setval(_varid,var1,val,rt);
+                }
+            }
+            break;
 		case _istr_incr:
 			_T[_getfch()]++;
 			break;
@@ -416,6 +443,7 @@ SBITHREAD* _sbi_createthread(PCOUNT p)
 	t->status = STOPPED;
 	t->_userfid = 0;
     t->raddr_cnt=0;
+    t->stackp = 0;
 	
 	// Return created structure
 	return t;

@@ -1,0 +1,27 @@
+; demonstrate stack w/ push pop
+;
+
+assign _t0 21; global value in variable
+jump 2 0; jmp to program main
+
+; test function takes two parameters on the stack
+; adds them and returns the value on the stack
+
+label 1;
+pop _t1;
+pop _t2;
+add _t1 _t2 _t3;
+push _t3;
+ret;
+
+label 2; program main
+
+push _t0;
+push 21;
+jump 1 1; call function 1
+pop _t4; t4 now has result
+debug _t4;
+exit;
+
+
+

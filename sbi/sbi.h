@@ -9,10 +9,42 @@
 	#define _SBI_H
     
 	// Configuration
-	#define VARIABLESNUM				64
-	#define USERFUNCTIONSN				16
-	#define RETURNADDRESSESN			16
-	#define THREADMAXNUM				10
+    // customize number of global variables
+    // these variables are available to every thread.
+    #ifndef VARIABLESNUM
+	    #define VARIABLESNUM				64
+    #endif
+
+    // number of user functions.
+    #ifndef USERFUNCTIONSN
+	    #define USERFUNCTIONSN				16
+    #endif
+
+    // number of return addresses per thread
+    // This directly effects the number of 
+    // nested functions you can call.
+    #ifndef RETURNADDRESSESN
+	    #define RETURNADDRESSESN			16
+    #endif
+
+    // max number of threads your programs
+    // can create.
+    #ifndef THREADMAXNUM
+	    #define THREADMAXNUM				10
+    #endif
+
+    // per thread stack size usable by push/pop
+    #ifndef STACK_SIZE
+        #define STACK_SIZE                  64
+    #endif
+
+    // per thread register space for thread
+    // local storage.  Can be used for function
+    // parameters, return values or whatever
+    // not to be modified by another thread.
+    #ifndef REG_SIZE 
+        #define REG_SIZE                    16
+    #endif
 	
 	// Multithreading configuration
     // #define _SBI_MULTITHREADING_EQUALTIME=0 to disable

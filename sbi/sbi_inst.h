@@ -19,6 +19,8 @@
 	#define _istr_sub						0x11
 	#define _istr_mul						0x12
 	#define _istr_div						0x13
+    #define _istr_push                      0x14
+    #define _istr_pop                       0x15
 	#define _istr_incr						0x20
 	#define _istr_decr						0x21
 	#define _istr_inv						0x22

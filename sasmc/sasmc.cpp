@@ -41,7 +41,8 @@ char* prgname;
 typedef enum
 {
 	WRONGNUM,
-	WRONGTYPE
+	WRONGTYPE,
+    WRONGCMD
 } CERRORTYPE;
 
 /*
@@ -243,6 +244,23 @@ int pline(string command, int argn, vector<string>& args)
 		wb(argv[2]);
 		return 0;
 	}
+    if (command.compare("push")==0)
+    {
+        if (argn!=1) { cerror(command, WRONGNUM); return 1; }
+        wb(_istr_push);
+        wb(argt[0]);
+        wb(argv[0]);
+        return 0;
+    }
+    if (command.compare("pop")==0) 
+    {
+        if (argn>1) { cerror(command, WRONGNUM); return 1; }
+        if (argn==1 && argt[0] != _varid) { cerror(command,WRONGTYPE); return 1; }
+        wb(_istr_pop);
+        wb(argn);
+        if (argn>0) wb(argv[0]);
+        return 0;
+    }
 	if (command.compare("incr")==0)
 	{
 		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
@@ -413,6 +431,14 @@ int pline(string command, int argn, vector<string>& args)
 		wb(_istr_exit);
 		return 0;
 	}
+
+    // TODO - make a better tokenizer
+    if (command.compare("\r")==0 ||
+        command.compare("")==0
+       )
+        return 0;
+    printf ( "Unhandled token: (%s)\n" , command.c_str() );
+    return 1;
 }
 
 /*

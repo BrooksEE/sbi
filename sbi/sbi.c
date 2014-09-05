@@ -6,6 +6,7 @@
 /* ========================================================================== */
 
 #include "sbi.h"
+#include "sbi_inst.h"
 
 #include <stdlib.h>
 #include <string.h> // memset

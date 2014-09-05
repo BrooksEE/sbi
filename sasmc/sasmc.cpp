@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <iostream>
 #include <fstream>
+#include <sbi_inst.h>
 #include "tokenizer.h"
 
 #define VERSION_STR "0.4"
@@ -18,49 +19,6 @@ typedef unsigned char byte;
 /*
 	SBI Format
 */
-#define HEADER_0						0xAA
-#define HEADER_1						0x4B
-//#define HEADER_1					0x3B // Old version
-//#define HEADER_1					0x2B // Old version
-//#define HEADER_1					0x1B // Old version
-
-#define LABELSECTION				0xA3
-#define INTERRUPTSSECTION		0xB3
-
-#define SEPARATOR						0xB7
-
-#define FOOTER_0						0x3A
-#define FOOTER_1						0xF0
-
-/*
-	SBI instructions
-*/
-#define assign							0x01
-#define move								0x02
-#define add									0x10
-#define sub									0x11
-#define mul									0x12
-#define div									0x13
-#define incr								0x20
-#define decr								0x21
-#define inv									0x22
-#define tob									0x23
-#define cmp									0x30
-#define high								0x31
-#define low									0x32
-#define label								0x40
-#define jump								0x41
-#define cmpjump							0x42
-#define	_ret								0x43
-#define debug								0x50
-#define debugstr						0x51
-#define error								0x52
-#define sint								0x60
-#define _int								0x61
-#define exit								0xFF
-
-#define varid								0x04
-#define value								0xF4
 
 /*
 	Program global variables
@@ -152,7 +110,7 @@ void wsbi(void)
 	
 	sbiwb(SEPARATOR);
 	
-	sbiwb(INTERRUPTSSECTION);
+	sbiwb(INTERRUPTSECTION);
 	sbiwb(interruptsn);
 	
 	for (n=0; n<interruptsn; n++)
@@ -202,7 +160,7 @@ int pline(string command, int argn, vector<string>& args)
 	int p=0;
 	for (i=0; i<8; i++)
 	{
-		argt[i]=value;
+		argt[i]=_value;
 		argv[i]=0;
 	}
 	for (i=0; i<argn; i++)
@@ -210,11 +168,11 @@ int pline(string command, int argn, vector<string>& args)
 		if ((args[i][0]=='_')&&(args[i][1]=='t'))
 		{
 			string s=args[i].substr(2);
-			argt[p]=varid;
+			argt[p]=_varid;
 			argv[p]=atoi(s.c_str());
 			p++;
 		} else {
-			argt[p]=value;
+			argt[p]=_value;
 			argv[p]=atoi(args[i].c_str());
 			p++;
 		}
@@ -222,8 +180,8 @@ int pline(string command, int argn, vector<string>& args)
 	if (command.compare("assign")==0)
 	{
 		if (argn!=2) { cerror(command, WRONGNUM); return 1; }
-		if ((argt[0]!=varid)||(argt[1]!=value)) { cerror(command, WRONGTYPE); return 1; }
-		wb(assign);
+		if ((argt[0]!=_varid)||(argt[1]!=_value)) { cerror(command, WRONGTYPE); return 1; }
+		wb(_istr_assign);
 		wb(argv[0]);
 		wb(argv[1]);
 		return 0;
@@ -231,8 +189,8 @@ int pline(string command, int argn, vector<string>& args)
 	if (command.compare("move")==0)
 	{
 		if (argn!=2) { cerror(command, WRONGNUM); return 1; }
-		if ((argt[0]!=varid)||(argt[1]!=varid)) { cerror(command, WRONGTYPE); return 1; }
-		wb(move);
+		if ((argt[0]!=_varid)||(argt[1]!=_varid)) { cerror(command, WRONGTYPE); return 1; }
+		wb(_istr_move);
 		wb(argv[0]);
 		wb(argv[1]);
 		return 0;
@@ -240,8 +198,8 @@ int pline(string command, int argn, vector<string>& args)
 	if (command.compare("add")==0)
 	{
 		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
-		if (argt[2]!=varid) { cerror(command, WRONGTYPE); return 1; }
-		wb(add);
+		if (argt[2]!=_varid) { cerror(command, WRONGTYPE); return 1; }
+		wb(_istr_add);
 		wb(argt[0]);
 		wb(argv[0]);
 		wb(argt[1]);
@@ -252,8 +210,8 @@ int pline(string command, int argn, vector<string>& args)
 	if (command.compare("sub")==0)
 	{
 		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
-		if (argt[2]!=varid) { cerror(command, WRONGTYPE); return 1; }
-		wb(sub);
+		if (argt[2]!=_varid) { cerror(command, WRONGTYPE); return 1; }
+		wb(_istr_sub);
 		wb(argt[0]);
 		wb(argv[0]);
 		wb(argt[1]);
@@ -264,8 +222,8 @@ int pline(string command, int argn, vector<string>& args)
 	if (command.compare("mul")==0)
 	{
 		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
-		if (argt[2]!=varid) { cerror(command, WRONGTYPE); return 1; }
-		wb(mul);
+		if (argt[2]!=_varid) { cerror(command, WRONGTYPE); return 1; }
+		wb(_istr_mul);
 		wb(argt[0]);
 		wb(argv[0]);
 		wb(argt[1]);
@@ -276,8 +234,8 @@ int pline(string command, int argn, vector<string>& args)
 	if (command.compare("div")==0)
 	{
 		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
-		if (argt[2]!=varid) { cerror(command, WRONGTYPE); return 1; }
-		wb(div);
+		if (argt[2]!=_varid) { cerror(command, WRONGTYPE); return 1; }
+		wb(_istr_div);
 		wb(argt[0]);
 		wb(argv[0]);
 		wb(argt[1]);
@@ -288,40 +246,40 @@ int pline(string command, int argn, vector<string>& args)
 	if (command.compare("incr")==0)
 	{
 		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
-		if (argt[0]!=varid) { cerror(command, WRONGTYPE); return 1; }
-		wb(incr);
+		if (argt[0]!=_varid) { cerror(command, WRONGTYPE); return 1; }
+		wb(_istr_incr);
 		wb(argv[0]);
 		return 0;
 	}
 	if (command.compare("decr")==0)
 	{
 		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
-		if (argt[0]!=varid) { cerror(command, WRONGTYPE); return 1; }
-		wb(decr);
+		if (argt[0]!=_varid) { cerror(command, WRONGTYPE); return 1; }
+		wb(_istr_decr);
 		wb(argv[0]);
 		return 0;
 	}
 	if (command.compare("inv")==0)
 	{
 		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
-		if (argt[0]!=varid) { cerror(command, WRONGTYPE); return 1; }
-		wb(inv);
+		if (argt[0]!=_varid) { cerror(command, WRONGTYPE); return 1; }
+		wb(_istr_inv);
 		wb(argv[0]);
 		return 0;
 	}
 	if (command.compare("tob")==0)
 	{
 		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
-		if (argt[0]!=varid) { cerror(command, WRONGTYPE); return 1; }
-		wb(tob);
+		if (argt[0]!=_varid) { cerror(command, WRONGTYPE); return 1; }
+		wb(_istr_tob);
 		wb(argv[0]);
 		return 0;
 	}
 	if (command.compare("cmp")==0)
 	{
 		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
-		if (argt[2]!=varid) { cerror(command, WRONGTYPE); return 1; }
-		wb(cmp);
+		if (argt[2]!=_varid) { cerror(command, WRONGTYPE); return 1; }
+		wb(_istr_cmp);
 		wb(argt[0]);
 		wb(argv[0]);
 		wb(argt[1]);
@@ -332,8 +290,8 @@ int pline(string command, int argn, vector<string>& args)
 	if (command.compare("high")==0)
 	{
 		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
-		if (argt[2]!=varid) { cerror(command, WRONGTYPE); return 1; }
-		wb(high);
+		if (argt[2]!=_varid) { cerror(command, WRONGTYPE); return 1; }
+		wb(_istr_high);
 		wb(argt[0]);
 		wb(argv[0]);
 		wb(argt[1]);
@@ -344,8 +302,8 @@ int pline(string command, int argn, vector<string>& args)
 	if (command.compare("low")==0)
 	{
 		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
-		if (argt[2]!=varid) { cerror(command, WRONGTYPE); return 1; }
-		wb(low);
+		if (argt[2]!=_varid) { cerror(command, WRONGTYPE); return 1; }
+		wb(_istr_low);
 		wb(argt[0]);
 		wb(argv[0]);
 		wb(argt[1]);
@@ -356,7 +314,7 @@ int pline(string command, int argn, vector<string>& args)
 	if (command.compare("label")==0)
 	{
 		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
-		if (argt[0]!=value) { cerror(command, WRONGTYPE); return 1; }
+		if (argt[0]!=_value) { cerror(command, WRONGTYPE); return 1; }
 		labels[argv[0]] = progln;
 		if ((argv[0]+1) > labelsn) labelsn = argv[0]+1;
 		return 0;
@@ -364,7 +322,7 @@ int pline(string command, int argn, vector<string>& args)
 	if (command.compare("sig")==0)
 	{
 		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
-		if (argt[0]!=value) { cerror(command, WRONGTYPE); return 1; }
+		if (argt[0]!=_value) { cerror(command, WRONGTYPE); return 1; }
 		interrupts[argv[0]] = progln;
 		if ((argv[0]+1) > interruptsn) interruptsn = argv[0]+1;
 		return 0;
@@ -372,8 +330,8 @@ int pline(string command, int argn, vector<string>& args)
 	if (command.compare("jump")==0)
 	{
 		if (argn!=2) { cerror(command, WRONGNUM); return 1; }
-		if (argt[1]!=value) { cerror(command, WRONGTYPE); return 1; }
-		wb(jump);
+		if (argt[1]!=_value) { cerror(command, WRONGTYPE); return 1; }
+		wb(_istr_jump);
 		wb(argt[0]);
 		wb(argv[0]);
 		wb(argv[1]);
@@ -382,8 +340,8 @@ int pline(string command, int argn, vector<string>& args)
 	if (command.compare("cmpjump")==0)
 	{
 		if (argn!=4) { cerror(command, WRONGNUM); return 1; }
-		if (argt[3]!=value) { cerror(command, WRONGTYPE); return 1; }
-		wb(cmpjump);
+		if (argt[3]!=_value) { cerror(command, WRONGTYPE); return 1; }
+		wb(_istr_cmpjump);
 		wb(argt[0]);
 		wb(argv[0]);
 		wb(argt[1]);
@@ -396,13 +354,13 @@ int pline(string command, int argn, vector<string>& args)
 	if (command.compare("ret")==0)
 	{
 		if (argn!=0) { cerror(command, WRONGNUM); return 1; }
-		wb(_ret);
+		wb(_istr_ret);
 		return 0;
 	}
 	if (command.compare("debug")==0)
 	{
 		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
-		wb(debug);
+		wb(_istr_debug);
 		wb(argt[0]);
 		wb(argv[0]);
 		return 0;
@@ -410,7 +368,7 @@ int pline(string command, int argn, vector<string>& args)
 	if (command.compare("error")==0)
 	{
 		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
-		wb(error);
+		wb(_istr_error);
 		wb(argt[0]);
 		wb(argv[0]);
 		return 0;
@@ -418,14 +376,14 @@ int pline(string command, int argn, vector<string>& args)
 	if (command.compare("sint")==0)
 	{
 		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
-		wb(sint);
+		wb(_istr_sint);
 		wb(argt[0]);
 		wb(argv[0]);
 		return 0;
 	}
 	if (command.compare("int")==0)
 	{
-		wb(_int);
+		wb(_istr_int);
 		for (int i=0; i<8; i++)
 		{
 			wb(argt[i]);
@@ -436,7 +394,7 @@ int pline(string command, int argn, vector<string>& args)
 	if (command.compare("exit")==0)
 	{
 		if (argn!=0) { cerror(command, WRONGNUM); return 1; }
-		wb(exit);
+		wb(_istr_exit);
 		return 0;
 	}
 }

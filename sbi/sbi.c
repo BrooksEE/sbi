@@ -32,6 +32,7 @@ typedef enum
 
 typedef struct
 {
+    byte threadid;
     PCOUNT p;
 	SBITHREADSTATUS status;
 	SBITHREADERROR _lasterror;
@@ -54,6 +55,7 @@ typedef struct
     	SBITHREADNUM _sbi_currentthreadn;
     #endif
     unsigned int thread_cnt;
+    byte new_threadid;
     unsigned int _exec;
 } sbi_runtime_t;
 
@@ -356,9 +358,15 @@ unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
             }
 			break;
         case _istr_thread:
-            var1t = _getfch();
-            var1 = _getfch();
-            _sbi_new_thread_at(_LABELS[_getval(var1t,var1,rt)], rt);
+            {
+                var1t = _getfch();
+                var1 = _getfch();
+                var2 = _getfch();
+                int ret = _sbi_new_thread_at(_LABELS[_getval(var1t,var1,rt)], rt);
+                byte tId = !ret ? rt->new_threadid : 0;
+                _setval( _varid, var2, tId, rt );
+                if (ret) _error(ret);
+            }
             break;
 		case _istr_exit:
 			return 2;
@@ -420,6 +428,9 @@ unsigned int _sbi_loadthread(SBITHREAD* thread, sbi_runtime_t* rt)
        return 4;
     }
     rt->_sbi_threads[rt->thread_cnt++] = thread;
+    do {
+      thread->threadid = ++rt->new_threadid;
+    } while (!thread->threadid); // ids wrap but skip 0
 	
 	// Done
 	return 0;

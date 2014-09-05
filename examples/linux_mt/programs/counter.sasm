@@ -8,7 +8,10 @@
 
 assign _t0 0 ; t0 = 0
 assign _t1 10 ; t1 = 10
-thread 1; Run the following loop in main and an additional thread
+thread 1 _t9; Run the following loop in main and an additional thread
+            ; thread id is stored in _t9
+            ; if thread creation fails _t9 will be 0 and context error function is called.
+debug _t9   ;
 
 label 0 ; Label for loop
 debug _t0 ; Write t0 to debug stream

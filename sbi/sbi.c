@@ -10,6 +10,7 @@
 
 #include <stdlib.h>
 #include <string.h> // memset
+#include <stdbool.h>
     
 // SBI  stuctures
 typedef enum
@@ -36,6 +37,7 @@ typedef struct
 	SBITHREADERROR _lasterror;
 	INTERRUPT* _interrupts;
 	RETADDR _returnaddresses[RETURNADDRESSESN];
+    unsigned int raddr_cnt;
 	USERFUNCID _userfid;
 } SBITHREAD;
     
@@ -51,6 +53,7 @@ typedef struct
     #if _SBI_MULTITHREADING_EQUALTIME
     	SBITHREADNUM _sbi_currentthreadn;
     #endif
+    unsigned int thread_cnt;
     unsigned int _exec;
 } sbi_runtime_t;
 
@@ -59,7 +62,7 @@ typedef struct
 unsigned int _sbi_new_thread_at(PCOUNT, sbi_runtime_t*);
 SBITHREAD* _sbi_createthread(PCOUNT);
 unsigned int _sbi_loadthread(SBITHREAD* thread, sbi_runtime_t*);
-void _sbi_removethread(SBITHREAD* thread);
+void _sbi_removethread(SBITHREAD* thread, sbi_runtime_t*);
 SBITHREAD* _sbi_getthread(SBITHREADNUM n);
 void _sbi_startthread(SBITHREAD* thread);
 void _sbi_stopthread(SBITHREAD* thread);
@@ -299,6 +302,7 @@ unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 				for (i=RETURNADDRESSESN-2; i>0; i--) _RETADDRS[i+1] = _RETADDRS[i];
 				_RETADDRS[1] = _RETADDRS[0];
 				_RETADDRS[0] = CUR_PCOUNT;
+                ++thread->raddr_cnt;
 			}
 			CUR_PCOUNT = _LABELS[_getval(var1t, var1, rt)];
 			break;
@@ -314,6 +318,7 @@ unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 				for (i=RETURNADDRESSESN-2; i>0; i--) _RETADDRS[i+1] = _RETADDRS[i];
 				_RETADDRS[1] = _RETADDRS[0];
 				_RETADDRS[0] = CUR_PCOUNT;
+                ++thread->raddr_cnt;
 			}
 			if (_getval(var1t, var1, rt)==_getval(var2t, var2, rt))
 			{
@@ -321,10 +326,14 @@ unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 			}
 			break;
 		case _istr_ret:
-            // TODO end a thread if
-            // ret and no more ret addrs
-			CUR_PCOUNT = _RETADDRS[0];
-			for (i=1; i<RETURNADDRESSESN; i++) _RETADDRS[i-1] = _RETADDRS[i];
+            if (thread->raddr_cnt>0) {
+			    CUR_PCOUNT = _RETADDRS[0];
+    			for (i=1; i<RETURNADDRESSESN; i++) _RETADDRS[i-1] = _RETADDRS[i];
+                --thread->raddr_cnt;
+            } else {
+                // thread exit
+                return 1;
+            }
 			break;
 		case _istr_debug:
 			var1t = _getfch();
@@ -385,6 +394,7 @@ SBITHREAD* _sbi_createthread(PCOUNT p)
 	t->p = p;
 	t->status = STOPPED;
 	t->_userfid = 0;
+    t->raddr_cnt=0;
 	
 	// Return created structure
 	return t;
@@ -406,76 +416,96 @@ unsigned int _sbi_loadthread(SBITHREAD* thread, sbi_runtime_t* rt)
 {
 	
 	// Load thread into threads list
-	unsigned int i;
-	byte ok = 0;
-	for (i=0; i<THREADMAXNUM; i++)
-		if (!rt->_sbi_threads[i])
-		{
-			rt->_sbi_threads[i] = thread;
-			ok = 1;
-			break;
-		}
-	
-	// Check if the thread was loaded
-	if (!ok) return 4;
+    if (rt->thread_cnt > THREADMAXNUM-1) {
+       return 4;
+    }
+    rt->_sbi_threads[rt->thread_cnt++] = thread;
 	
 	// Done
 	return 0;
 }
 
-void _sbi_removethread(SBITHREAD* thread)
+void _sbi_removethread(SBITHREAD* thread, sbi_runtime_t* rt)
 {
-	// TODO
+    int i;
+    bool remove=false;
+    for ( i=0; i< rt->thread_cnt; ++i ) {
+        if (rt->_sbi_threads[i] == thread) {
+            free(thread->_interrupts);
+            free(thread);
+            remove=true;
+            break;
+        }
+    }
+    if (remove) {
+       for ( ; i< rt->thread_cnt-1; ++i) {
+         rt->_sbi_threads[i] = rt->_sbi_threads[i+1];
+       }
+       --rt->thread_cnt;
+    }
+
 }
 
 /*
 	Step all threads of one instruction
-	Returns the number of threads "stepped"
+	Returns the error code for current thread that was stepped 
+
 */
 unsigned int sbi_step(void *rt)
 {
+    unsigned int ret=0;
 	#if !_SBI_MULTITHREADING_EQUALTIME
-		int c = 0;
-		int i;
-		for (i=0; i<THREADMAXNUM; i++)
-			if (RT->_sbi_threads[i])
-			{
-				if (RT->_sbi_threads[i]->status == RUNNING)
-				{
-					unsigned int ret = _sbi_step_internal(_sbi_threads[i], RT);
-					c++;
-					if (ret)
-					{
-						RT->_sbi_threads[i]->_lasterror = ret;
-						if (ret > 2)
-							RT->_sbi_threads[i]->status = ERROR;
-						else
-							RT->_sbi_threads[i]->status = STOPPED;
-					}
-				}
-			}
-		return c;
+        // TODO fix
+		//int c = 0;
+		//int i;
+		//for (i=0; i<THREADMAXNUM; i++)
+		//	if (RT->_sbi_threads[i])
+		//	{
+		//		if (RT->_sbi_threads[i]->status == RUNNING)
+		//		{
+		//			unsigned int ret = _sbi_step_internal(_sbi_threads[i], RT);
+		//			c++;
+		//			if (ret)
+		//			{
+		//				RT->_sbi_threads[i]->_lasterror = ret;
+		//				if (ret > 2)
+		//					RT->_sbi_threads[i]->status = ERROR;
+		//				else
+		//					RT->_sbi_threads[i]->status = STOPPED;
+		//			}
+		//		}
+		//	}
+		//return c;
 	#else
-		byte done = 0;
-		if (RT->_sbi_threads[RT->_sbi_currentthreadn])
+        SBITHREAD* thread = RT->_sbi_threads[RT->_sbi_currentthreadn];
+		if (thread)
 		{
-			if (RT->_sbi_threads[RT->_sbi_currentthreadn]->status == RUNNING)
+			if (thread->status == RUNNING)
 			{
-				unsigned int ret = _sbi_step_internal(RT->_sbi_threads[RT->_sbi_currentthreadn],rt);
-				done = 1;
+				ret = _sbi_step_internal(thread,rt);
 				if (ret)
 				{
-					RT->_sbi_threads[RT->_sbi_currentthreadn]->_lasterror = ret;
-					if (ret > 2)
-						RT->_sbi_threads[RT->_sbi_currentthreadn]->status = ERROR;
-					else
-						RT->_sbi_threads[RT->_sbi_currentthreadn]->status = STOPPED;
+                    _sbi_removethread(thread,RT);
+                    thread=NULL;
+                    if (ret == 2) {
+                       // program exit
+                       int i;
+                       for ( i=0;i<RT->thread_cnt;++i ) _sbi_stopthread(RT->_sbi_threads[i]); 
+                    } else {
+                       // don't skip the next thread 
+                       // set it to the previous threadn so the next thread
+                       // is not starved.
+                       RT->_sbi_currentthreadn ==
+                        RT->_sbi_currentthreadn == 0 ? 
+                            RT->thread_cnt-1 :
+                            RT->_sbi_currentthreadn-1;
+                    }
 				}
 			}
 		}
 		RT->_sbi_currentthreadn++;
-		if (RT->_sbi_currentthreadn > (THREADMAXNUM - 1)) RT->_sbi_currentthreadn = 0;
-		return (unsigned int)done;
+		if (RT->_sbi_currentthreadn > (RT->thread_cnt - 1)) RT->_sbi_currentthreadn = 0;
+		return ret; 
 	#endif
 }
 
@@ -483,7 +513,7 @@ unsigned int sbi_running(void* rt)
 {
 	int c = 0;
 	int i;
-	for (i=0; i<THREADMAXNUM; i++)
+	for (i=0; i<RT->thread_cnt; i++)
 		if (RT->_sbi_threads[i])
 			if (RT->_sbi_threads[i]->status == RUNNING)
 				c++;
@@ -537,7 +567,7 @@ void interrupt(const unsigned int id, void* rt)
 
 void sbi_cleanup(void *rt) {
     int i;
-    for (i=0;i<THREADMAXNUM;++i) {
+    for (i=0;i<RT->thread_cnt;++i) {
       if (RT->_sbi_threads[i]) {
         free( RT->_sbi_threads[i]->_interrupts);
         free ( RT->_sbi_threads[i] );

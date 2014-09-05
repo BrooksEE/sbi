@@ -1,14 +1,27 @@
 ; Simple counter program
 ;
-; Counts numbers from 0 to 9
+; Counts numbers from 0 to 9 on thread 0
+; and 10 to 99 on thread 1
+; This program illustrates the exit at the end
+; of thread 0, which terminates all threads.
 ;
 
 assign _t0 0 ; t0 = 0
-thread 0; Run the following loop in main and an additional thread
+assign _t1 10 ; t1 = 10
+thread 1; Run the following loop in main and an additional thread
+
 label 0 ; Label for loop
 debug _t0 ; Write t0 to debug stream
 incr _t0 ; Increments t0
-low _t0 10 _t1
-cmpjump _t1 1 0 0 ; If _t0 is lower than 10 jump to label 0 (loop)
+low _t0 10 _t2
+cmpjump _t2 1 0 0 ; If _t0 is lower than 10 jump to label 0 (loop)
 
 exit ; else exit
+
+label 1; 2nd counter loop
+debug _t1;
+incr _t1;
+low _t1 100 _t3;
+cmpjump _t3 1 1 0;
+ret ;
+

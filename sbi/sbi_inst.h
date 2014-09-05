@@ -27,12 +27,13 @@
 	#define _istr_high						0x31
 	#define _istr_low						0x32
 	#define _istr_jump						0x41
-	#define _istr_cmpjump						0x42
+	#define _istr_cmpjump		 		0x42
 	#define	_istr_ret						0x43
 	#define _istr_debug						0x50
 	#define _istr_error						0x52
 	#define _istr_sint						0x60
 	#define _istr_int						0x61
+    #define _istr_thread                    0x62
 	#define _istr_exit						0xFF
 	
 	#define _varid							0x04

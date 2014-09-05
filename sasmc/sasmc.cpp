@@ -391,6 +391,14 @@ int pline(string command, int argn, vector<string>& args)
 		}
 		return 0;
 	}
+    if (command.compare("thread")==0) {
+		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
+		if (argt[0]!=_value) { cerror(command, WRONGTYPE); return 1; }
+        wb(_istr_thread);
+        wb(argt[0]);
+        wb(argv[0]);
+        return 0;
+    }
 	if (command.compare("exit")==0)
 	{
 		if (argn!=0) { cerror(command, WRONGNUM); return 1; }

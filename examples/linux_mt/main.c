@@ -10,6 +10,7 @@ byte getfch1(PCOUNT p, struct sbi_context_t *ctx)
 {
 	fseek (f1, p, SEEK_SET);
 	byte r = fgetc(f1);
+    //printf ( "prog1 byte %d=%d\n", p, r );
 	return r;
 }
 
@@ -17,6 +18,7 @@ byte getfch2(PCOUNT p, struct sbi_context_t *ctx)
 {
 	fseek (f2, p, SEEK_SET);
 	byte r = fgetc(f2);
+    //printf ( "prog2 byte %d=%d\n", p, r );
 	return r;
 }
 
@@ -68,14 +70,11 @@ int main(int argc, char** argv)
 	printf("Running...\n");
 	
 	_sbi_startthread(t1);
+	_sbi_startthread(t2);
 	
-	ret = 1;
-	int c = 0;
 	while (_sbi_running()>0)
 	{
 		ret = _sbi_stepall(&ctx);
-		c++;
-		if (c == 29) _sbi_startthread(t2);
 	}
 	
 	printf("All threads terminated\n");

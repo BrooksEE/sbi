@@ -400,6 +400,13 @@ int pline(string command, int argn, vector<string>& args)
         wb(argv[1]);
         return 0;
     }
+    if (command.compare("wait")==0) {
+        if (argn!=1) { cerror(command, WRONGNUM); return 1; }
+        if (argt[0] != _varid) { cerror(command, WRONGTYPE); return 1; }
+        wb(_istr_wait);
+        wb(argv[0]);
+        return 0;
+    }
 	if (command.compare("exit")==0)
 	{
 		if (argn!=0) { cerror(command, WRONGNUM); return 1; }

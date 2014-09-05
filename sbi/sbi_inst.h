@@ -34,6 +34,7 @@
 	#define _istr_sint						0x60
 	#define _istr_int						0x61
     #define _istr_thread                    0x62
+    #define _istr_wait                      0x63
 	#define _istr_exit						0xFF
 	
 	#define _varid							0x04

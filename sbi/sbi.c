@@ -368,6 +368,19 @@ unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
                 if (ret) _error(ret);
             }
             break;
+        case _istr_wait:
+            {
+                var1 = _getfch();
+                byte tId = _getval(_varid,var1,rt);
+                for (i=0;i<rt->thread_cnt;++i) {
+                    if ( rt->_sbi_threads[i]->threadid == tId &&
+                         rt->_sbi_threads[i]->status == RUNNING ) {
+                         CUR_PCOUNT-=2; // rerun wait
+                         break;
+                    }
+                }
+            }
+            break;
 		case _istr_exit:
 			return 2;
 			break;

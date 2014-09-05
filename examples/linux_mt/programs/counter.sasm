@@ -19,7 +19,13 @@ incr _t0 ; Increments t0
 low _t0 10 _t2
 cmpjump _t2 1 0 0 ; If _t0 is lower than 10 jump to label 0 (loop)
 
+wait _t9; this will cause thread 1 to wait for thread 2 until it's done counting 
+
 exit ; else exit
+; alternate instead of wait 
+; ret ; using ret instead of exit will simply close the current thread
+; and the program will run until all threads have exited.
+
 
 label 1; 2nd counter loop
 debug _t1;

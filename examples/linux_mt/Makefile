@@ -3,8 +3,6 @@ SBIDIR=../../sbi
 SRC=main.c $(SBIDIR)/sbi.c
 OBJS=$(patsubst %.c, %.o, $(SRC))
 
-CCFLAGS = -D_SBI_MULTITHREADING_ENABLE=1
-
 %.o:%.c $(SBIDIR)/sbi.h
 	gcc $(CCFLAGS) -c -o $@ -I$(SBIDIR) $<
 

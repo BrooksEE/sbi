@@ -18,10 +18,9 @@
 	#define THREADMAXNUM				10
 	
 	// Multithreading configuration
-    #ifndef _SBI_MULTITHREADING_ENABLE 
-        #ifndef _SBI_MULTITHREADING_EQUALTIME
+    // #define _SBI_MULTITHREADING_EQUALTIME=0 to disable
+    #ifndef _SBI_MULTITHREADING_EQUALTIME
   		#define _SBI_MULTITHREADING_EQUALTIME 1
-        #endif
     #endif
 	
 	// Define 'byte' variable type
@@ -86,120 +85,37 @@
 	#define _varid							0x04
 	#define _value							0xF4
 
-    struct sbi_context_t;
-    // returns the next byte from the source sbi
-	typedef byte (*getfch_func)(PCOUNT p, struct sbi_context_t*);
-	
-	#ifdef _SBI_MULTITHREADING_ENABLE
-		// SBI multithreading eums
-		typedef enum
-		{
-			ERROR = 0,
-			STOPPED,
-			RUNNING
-		} SBITHREADSTATUS;
-		
-		typedef enum
-		{
-			NOERROR = 0,
-			REACHEDEND,
-			EXITED,
-			WRONGINSTR,
-			WRONGBYTE,
-			USERERROR
-		} SBITHREADERROR;
-		
-		// SBI structures
-		typedef struct
-		{
-		    getfch_func getfch;	
-			PCOUNT p;
-		} SBISTREAM;
-		
-		typedef struct
-		{
-			SBISTREAM* stream;
-			SBITHREADSTATUS status;
-			SBITHREADERROR _lasterror;
-			VARIABLE _t[VARIABLESNUM];
-			LABEL* _labels;
-			INTERRUPT* _interrupts;
-			RETADDR _returnaddresses[RETURNADDRESSESN];
-			USERFUNCID _userfid;
-		} SBITHREAD;
-		
-		// Multithreading variables
-		extern SBITHREAD* _sbi_threads[THREADMAXNUM];
-		extern SBITHREAD* _sbi_currentthread;
-		#if _SBI_MULTITHREADING_EQUALTIME
-			SBITHREADNUM _sbi_currentthreadn;
-		#endif
-	#else
-		extern PCOUNT p;
-	#endif
-	
-    // all context functions take 2nd argument
-    // of sbi_context_t* taken from passid in
-    // context.
-
-
 	// User functions
-	typedef void (*sbi_user_func)(byte[], struct sbi_context_t*);
+    // The user must pass the void* to _getval, _setval if used
+	typedef void (*sbi_user_func)(byte[], void* );
 
 	// Put here your debug code
-	typedef void(*debugn_func)(int n, struct sbi_context_t*);
+	typedef void(*debugn_func)(int n, void*);
 
 	// Put here your error printing code
-	typedef void(*errorn_func)(int n, struct sbi_context_t*);
-
-
-    //// set the source sbi pos
-	//typedef void (*setfpos_func)(const unsigned int, sbi_context_t*);
-    //// get the source sbi pos
-	//typedef unsigned int (*getfpos_func)(sbi_context_t*);
+	typedef void(*errorn_func)(int n, void* );
+    
+    // returns the next byte from the source sbi
+	typedef byte (*getfch_func)(PCOUNT p, void*);
 	
-	struct sbi_context_t {
+	typedef struct {
 		debugn_func debugn;
 		errorn_func errorn;
-        #ifndef _SBI_MULTITHREADING_ENABLE
-		getfch_func getfch; 
-    	#endif
-        //setfpos_func setfpos;
-        //getfpos_func getfpos;
+        getfch_func getfch;
 	    sbi_user_func sbi_user_funcs[USERFUNCTIONSN];
-	};
+        void* userdata;
+	} sbi_context_t;
 	
-	byte _getval(const byte type, const byte val);
-	unsigned int _setval(const byte type, const byte num, const byte val);
 	
-	void _sbi_init(struct sbi_context_t*);
-	
-	void _interrupt(const INTERRUPT id, struct sbi_context_t*);
-	
-	#ifndef _SBI_MULTITHREADING_ENABLE
-		unsigned int _sbi_begin(struct sbi_context_t*);
-		unsigned int _sbi_step(struct sbi_context_t*);
-	#endif
-	
-	#ifdef _SBI_MULTITHREADING_ENABLE
-		SBISTREAM* _sbi_createstream(getfch_func);
-		
-		SBITHREAD* _sbi_createthread(SBISTREAM* stream);
-		unsigned int _sbi_loadthread(SBITHREAD* thread, struct sbi_context_t*);
-		void _sbi_removethread(SBITHREAD* thread);
-		
-		unsigned int _sbi_step(SBITHREAD* thread, struct sbi_context_t*);
-		unsigned int _sbi_stepall(struct sbi_context_t*);
-		
-		unsigned int _sbi_running(void);
-		
-		SBITHREAD* _sbi_getthread(SBITHREADNUM n);
-		
-		void _sbi_startthread(SBITHREAD* thread);
-		void _sbi_stopthread(SBITHREAD* thread);
-		SBITHREADSTATUS _sbi_getthreadstatus(SBITHREAD* thread);
-		SBITHREADERROR _sbi_getthreaderror(SBITHREAD* thread);
-	#endif
+    // public api 
+	void* sbi_init(sbi_context_t*);
+    unsigned int sbi_begin();
+	unsigned int sbi_running(void*);
+	unsigned int sbi_step();
+	void interrupt(const INTERRUPT id, void*);
+
+	byte getval(const byte type, const byte val, void*);
+	unsigned int setval(const byte type, const byte num, const byte val, void*);
 	
 	
 #endif

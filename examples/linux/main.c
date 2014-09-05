@@ -7,7 +7,7 @@ FILE* f;
 
 int pos;
 
-byte getfch(int p, struct sbi_context_t *ctx)
+byte getfch(PCOUNT p, void* rt)
 {
     fseek(f,p, SEEK_SET);
 	return fgetc(f); 
@@ -25,7 +25,7 @@ int main(int argc, char** argv)
 	if (!f) { printf("Can't open file!\n"); return 1; }
 	
 	// Init_
-    struct sbi_context_t ctx;
+    sbi_context_t ctx;
     ctx.debugn=debugn;
     ctx.errorn=errorn;
     ctx.getfch=getfch;
@@ -34,9 +34,9 @@ int main(int argc, char** argv)
     ctx.sbi_user_funcs[2] = getnum;
     
 
-	_sbi_init(&ctx); pos=0;
+	void* rt = sbi_init(&ctx); pos=0;
 	
-	int ret = _sbi_begin(&ctx);
+	int ret = sbi_begin(rt);
 	if (ret==1) printf("Initialization error (no function pointers)\n");
 	if (ret==2) printf("Initialization error (old format version)\n");
 	if (ret==3) printf("Initialization error (invalid program file)\n");
@@ -46,9 +46,9 @@ int main(int argc, char** argv)
 	
 	printf("Running...\n");
 	
-	while (ret==0)
+	while (sbi_running(rt)>0)
 	{
-		ret = _sbi_step(&ctx);
+		ret = sbi_step(rt);
 	}
 	
 	fclose(f);

@@ -8,58 +8,103 @@
 #include "sbi.h"
 
 #include <stdlib.h>
+#include <string.h> // memset
+    
+// SBI  stuctures
+typedef enum
+{
+	ERROR = 0,
+	STOPPED,
+	RUNNING
+} SBITHREADSTATUS;
+
+typedef enum
+{
+	NOERROR = 0,
+	REACHEDEND,
+	EXITED,
+	WRONGINSTR,
+	WRONGBYTE,
+	USERERROR
+} SBITHREADERROR;
+
+// SBI structures
+typedef struct
+{
+    getfch_func getfch;	
+	PCOUNT p;
+} SBISTREAM;
+
+typedef struct
+{
+	SBISTREAM* stream;
+	SBITHREADSTATUS status;
+	SBITHREADERROR _lasterror;
+	VARIABLE _t[VARIABLESNUM];
+	LABEL* _labels;
+	INTERRUPT* _interrupts;
+	RETADDR _returnaddresses[RETURNADDRESSESN];
+	USERFUNCID _userfid;
+} SBITHREAD;
+    
+// internal runtime structure for global api
+typedef struct
+{
+    // Multithreading variables
+    sbi_context_t * ctx;
+    SBITHREAD* _sbi_threads[THREADMAXNUM];
+    SBITHREAD* _sbi_currentthread;
+    #if _SBI_MULTITHREADING_EQUALTIME
+    	SBITHREADNUM _sbi_currentthreadn;
+    #endif
+    unsigned int _exec;
+} sbi_runtime_t;
+
+
+// multi threading internal functions
+SBISTREAM* _sbi_createstream();
+
+SBITHREAD* _sbi_createthread(SBISTREAM* stream);
+unsigned int _sbi_loadthread(SBITHREAD* thread, sbi_runtime_t*);
+void _sbi_removethread(SBITHREAD* thread);
+SBITHREAD* _sbi_getthread(SBITHREADNUM n);
+void _sbi_startthread(SBITHREAD* thread);
+void _sbi_stopthread(SBITHREAD* thread);
+SBITHREADSTATUS _sbi_getthreadstatus(SBITHREAD* thread);
+SBITHREADERROR _sbi_getthreaderror(SBITHREAD* thread);
 
 
 // Variables, labels and subroutines
-#ifndef _SBI_MULTITHREADING_ENABLE
-    // easy access
-    #define _debug(d)				ctx->debugn(d,ctx)
-    #define _error(d)				ctx->errorn(d,ctx)
-    #define _getfch()               ctx->getfch(p++,ctx)
-	VARIABLE _t[VARIABLESNUM];
-	LABEL* _labels;
-	RETADDR _returnaddresses[RETURNADDRESSESN];
-	PCOUNT p;
-	USERFUNCID _userfid;
-    getfch_func _getfch;
-#else
-    // easy access
-    #define _debug(d)				ctx->debugn(d,ctx)
-    #define _error(d)				ctx->errorn(d,ctx)
-    #define _getfch()               thread->stream->getfch(thread->stream->p++, ctx)
- 
-	SBITHREAD* _sbi_threads[THREADMAXNUM];
-	SBITHREAD* _sbi_currentthread;
-	#if _SBI_MULTITHREADING_EQUALTIME
-		SBITHREADNUM _sbi_currentthreadn;
-	#endif
-#endif
+// easy access
+#define _debug(d)				RT->ctx->debugn(d,rt)
+#define _error(d)				RT->ctx->errorn(d,rt)
+#define _getfch()               RT->ctx->getfch(thread->stream->p++, rt)
+#define _T                      thread->_t
+// for casting void* to runtime
+#define RT ((sbi_runtime_t*)rt)
+#define _RETADDRS               thread->_returnaddresses
+#define CUR_PCOUNT              thread->stream->p
+#define _LABELS                 thread->_labels
 
 // Interrupts
-#ifdef _SBI_MULTITHREADING_ENABLE
+// TODO how do interrupts work with just one program?
+// they happen independent of any thread?
+// or perhaps they happen on the main thread.
+#if 0 //def _SBI_MULTITHREADING_ENABLE
 	SBITHREAD** _interrupts_threads;
 #else
 	INTERRUPT* _interrupts;
 #endif
 
-unsigned int _exec = 0;
 INTERRUPT _intinqueue = 0;
-
-// User functions
-#ifndef _SBI_MULTITHREADING_ENABLE
-	USERFUNCID _userfid = 0;
-#endif
 
 /*
 	Gets the value of a parameter
  */
-byte _getval(const byte type, const byte val)
+byte _getval(const byte type, const byte val, void* t )
 {
-	#ifndef _SBI_MULTITHREADING_ENABLE
-		if (type==_varid) return _t[val]; else return val;
-	#else
-		if (type==_varid) return _sbi_currentthread->_t[val]; else return val;
-	#endif
+    SBITHREAD* thread = (SBITHREAD*)t;
+	if (type==_varid) return thread->_t[val]; else return val;
 }
 
 /*
@@ -70,78 +115,93 @@ byte _getval(const byte type, const byte val)
 			1: 	The specified parameter
 			is not a variable
  */
-unsigned int _setval(const byte type, const byte num, const byte val) 
+unsigned int _setval(const byte type, const byte num, const byte val, void* t) 
 {
-	#ifndef _SBI_MULTITHREADING_ENABLE
-		if (type==_varid)
-		{
-			_t[num]=val;
-			return 0;
-		} else {
-			return 1;
-		}
-	#else
-		if (type==_varid)
-		{
-			_sbi_currentthread->_t[num]=val;
-			return 0;
-		} else {
-			return 1;
-		}
-	#endif
+    SBITHREAD* thread = (SBITHREAD*)t;
+    if (type==_varid)
+    {
+    	thread->_t[num]=val;
+    	return 0;
+    } else {
+    	return 1;
+    }
 }
 
-/*
-	Common variables
- */
-byte rd;
-unsigned int var1t;
-unsigned int var1;
-unsigned int var2t;
-unsigned int var2;
-unsigned int var3t;
-unsigned int var3;
-byte b[16];
-unsigned int i;
 
 /*
 	Initializes the interpreter
+
+    Returns a runtime for other functions
+    or NULL if memory broken.
  */
-void _sbi_init(struct sbi_context_t * ctx)
+void* sbi_init(sbi_context_t * ctx)
 {
-	
-	#ifdef _SBI_MULTITHREADING_ENABLE
-		int i;
-		for (i=0; i<THREADMAXNUM; i++) _sbi_threads[i] = NULL;
-		_sbi_currentthread = NULL;
-		#if _SBI_MULTITHREADING_EQUALTIME
-			_sbi_currentthreadn = 0;
-		#endif
-	#else
-		_userfid = 0;
-		p = 0;
-	#endif
+    sbi_runtime_t *rt = (sbi_runtime_t*)malloc(sizeof(sbi_runtime_t));
+    if (!rt) return NULL;
+    memset ( rt, 0, sizeof(sbi_runtime_t) );
+
+    rt->ctx = ctx;
+
+    return rt;
 }
 
+/*
+ * Starts the main thread
+ * TODO update to return error codes from global struct
+ */
+unsigned int sbi_begin(void *rt) {
 
-// TODO
-// create an internal context
-// that can be used regardless of 
-// threaded or non threaded
-// discontinue macro use.
-#ifdef _SBI_MULTITHREADING_ENABLE
-#define _RETADDRS thread->_returnaddresses
-#define _T thread->_t
-#define CUR_PCOUNT _sbi_currentthread->stream->p
-#define _LABELS thread->_labels
-#define _USERFID thread->_userfid
-#else
-#define _RETADDRS _returnaddresses
-#define _T _t 
-#define CUR_PCOUNT p
-#define _LABELS _labels
-#define _USERFID _userfid
-#endif
+    if (!rt) return 1;
+
+    // create the main thread
+    SBISTREAM* s1 = _sbi_createstream();
+    if (!s1) return 1;
+	
+	SBITHREAD* thread = _sbi_createthread(s1);
+    if (!thread) return 1;
+	
+    if (!RT->ctx->getfch) return 1;
+ 
+	// Read head
+	if (_getfch()!=HEADER_0) return 3;
+	byte rd = _getfch();
+	if (rd!=HEADER_1) {
+		if ((rd==0x1B)||(rd==0x2B)||(rd==0x3B))
+			return 2;
+		else
+			return 3;
+	}
+	
+	// Getting labels
+	if (_getfch()!=LABELSECTION) return 3;
+	unsigned int ln = _getfch();
+	thread->_labels = malloc(ln * sizeof(LABEL));
+	unsigned int c = 0;
+	while (ln--)
+	{
+			thread->_labels[c] = _getfch() | (_getfch() << 8);
+			c++;
+	}
+	if (_getfch()!=SEPARATOR) return 3;
+	
+	// Getting interrupts addresses
+	if (_getfch()!=INTERRUPTSECTION) return 3;
+	ln = _getfch();
+	thread->_interrupts = malloc(ln * sizeof(INTERRUPT));
+	c = 0;
+	while (ln--)
+	{
+			thread->_interrupts[c] = _getfch() | (_getfch() << 8);
+			c++;
+	}
+	if (_getfch()!=SEPARATOR) return 3;
+
+	int ret = _sbi_loadthread(thread, RT);
+    if (!ret) _sbi_startthread(thread);
+    return ret;
+
+}
+
 
 /*
 	Steps the program of one instruction (no multithreading)
@@ -154,14 +214,13 @@ void _sbi_init(struct sbi_context_t * ctx)
 		4: 	Can't understand byte
 		5: 	User error
 */
-unsigned int _sbi_step_internal(struct sbi_context_t* ctx 
- #ifdef _SBI_MULTITHREADING_ENABLE
- ,
- SBITHREAD* thread
- #endif
-)
+unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 {
-	_exec = 1;
+
+    byte rd, var1, var2, var1t, var2t, var3, var3t;
+    int i;
+
+	RT->_exec = 1;
 	
 	rd = _getfch();
 	switch (rd)
@@ -179,28 +238,28 @@ unsigned int _sbi_step_internal(struct sbi_context_t* ctx
 			var1 = _getfch();
 			var2t = _getfch();
 			var2 = _getfch();
-			_T[_getfch()] = _getval(var1t, var1) + _getval(var2t, var2);
+			_T[_getfch()] = _getval(var1t, var1, thread) + _getval(var2t, var2, thread);
 			break;
 		case _istr_sub:
 			var1t = _getfch();
 			var1 = _getfch();
 			var2t = _getfch();
 			var2 = _getfch();
-			_T[_getfch()] = _getval(var1t, var1) - _getval(var2t, var2);
+			_T[_getfch()] = _getval(var1t, var1, thread) - _getval(var2t, var2, thread);
 			break;
 		case _istr_mul:
 			var1t = _getfch();
 			var1 = _getfch();
 			var2t = _getfch();
 			var2 = _getfch();
-			_T[_getfch()] = _getval(var1t, var1) * _getval(var2t, var2);
+			_T[_getfch()] = _getval(var1t, var1, thread) * _getval(var2t, var2, thread);
 			break;
 		case _istr_div:
 			var1t = _getfch();
 			var1 = _getfch();
 			var2t = _getfch();
 			var2 = _getfch();
-			_T[_getfch()] = _getval(var1t, var1) / _getval(var2t, var2);
+			_T[_getfch()] = _getval(var1t, var1, thread) / _getval(var2t, var2, thread);
 			break;
 		case _istr_incr:
 			_T[_getfch()]++;
@@ -221,21 +280,21 @@ unsigned int _sbi_step_internal(struct sbi_context_t* ctx
 			var1 = _getfch();
 			var2t = _getfch();
 			var2 = _getfch();
-			if (_getval(var1t, var1)==_getval(var2t, var2)) _T[_getfch()]=1; else _T[_getfch()]=0;
+			if (_getval(var1t, var1, thread)==_getval(var2t, var2, thread)) _T[_getfch()]=1; else _T[_getfch()]=0;
 			break;
 		case _istr_high:
 			var1t = _getfch();
 			var1 = _getfch();
 			var2t = _getfch();
 			var2 = _getfch();
-			if (_getval(var1t, var1)>_getval(var2t, var2)) _T[_getfch()]=1; else _T[_getfch()]=0;
+			if (_getval(var1t, var1, thread)>_getval(var2t, var2, thread)) _T[_getfch()]=1; else _T[_getfch()]=0;
 			break;
 		case _istr_low:
 			var1t = _getfch();
 			var1 = _getfch();
 			var2t = _getfch();
 			var2 = _getfch();
-			if (_getval(var1t, var1)<_getval(var2t, var2)) _T[_getfch()]=1; else _T[_getfch()]=0;
+			if (_getval(var1t, var1, thread)<_getval(var2t, var2, thread)) _T[_getfch()]=1; else _T[_getfch()]=0;
 			break;
 		case _istr_jump:
 			var1t = _getfch();
@@ -246,7 +305,7 @@ unsigned int _sbi_step_internal(struct sbi_context_t* ctx
 				_RETADDRS[1] = _RETADDRS[0];
 				_RETADDRS[0] = CUR_PCOUNT;
 			}
-			CUR_PCOUNT = _LABELS[_getval(var1t, var1)];
+			CUR_PCOUNT = _LABELS[_getval(var1t, var1, thread)];
 			break;
 		case _istr_cmpjump:
 			var1t = _getfch();
@@ -261,9 +320,9 @@ unsigned int _sbi_step_internal(struct sbi_context_t* ctx
 				_RETADDRS[1] = _RETADDRS[0];
 				_RETADDRS[0] = CUR_PCOUNT;
 			}
-			if (_getval(var1t, var1)==_getval(var2t, var2))
+			if (_getval(var1t, var1, thread)==_getval(var2t, var2, thread))
 			{
-				CUR_PCOUNT = _LABELS[_getval(var3t, var3)];
+				CUR_PCOUNT = _LABELS[_getval(var3t, var3, thread)];
 			}
 			break;
 		case _istr_ret:
@@ -272,20 +331,23 @@ unsigned int _sbi_step_internal(struct sbi_context_t* ctx
 			break;
 		case _istr_debug:
 			var1t = _getfch();
-			_debug(_getval(var1t, _getfch()));
+			_debug(_getval(var1t, _getfch(), thread));
 			break;
 		case _istr_error:
 			var1t = _getfch();
-			_error(_getval(var1t, _getfch()));
+			_error(_getval(var1t, _getfch(), thread));
 			return 5;
 			break;
 		case _istr_sint:
 			var1t = _getfch();
-			_USERFID=_getval(var1t, _getfch());
+			thread->_userfid=_getval(var1t, _getfch(), thread);
 			break;
 		case _istr_int:
+            {
+            static byte b[16]; // TODO 
 			for (i=0; i<16; i++) b[i] = _getfch();
-			ctx->sbi_user_funcs[_USERFID](b,ctx);
+			RT->ctx->sbi_user_funcs[thread->_userfid](b,thread);
+            }
 			break;
 		case _istr_exit:
 			return 2;
@@ -298,469 +360,349 @@ unsigned int _sbi_step_internal(struct sbi_context_t* ctx
 			break;
 	}
 	
-	_exec = 0;
+	RT->_exec = 0;
 	
-	if (_intinqueue) _interrupt(_intinqueue - 1, ctx); // If there are interrupts in the queue, do it
+    // TODO eval interrupts
+	if (_intinqueue) interrupt(_intinqueue - 1, rt); // If there are interrupts in the queue, do it
 	
 	return 0;
 }
 
+
+	
+SBISTREAM* _sbi_createstream()
+{
+	// Allocate memory for a new structure
+	SBISTREAM* s = (SBISTREAM*) malloc(sizeof(SBISTREAM));
+    if (!s) return 0;
+	
+	s->p = 0;
+	
+	// Return created structure
+	return s;
+}
 /*
-	Following ONLY in NON multithreading mode
-*/
-
-#ifndef _SBI_MULTITHREADING_ENABLE
-	/*
-		Begins program execution (no multithreading)
-		
-		Returns:
-			0: 	No errors
-			1: 	No function pointer for _getfch
-			2:	Old version of executable format
-			3:	Invalid program file
-	*/
-
-	unsigned int _sbi_begin(struct sbi_context_t *ctx)
-
-    {
-    	// Check function pointers
-    	if ((ctx->getfch==0)) return 1;
-        
-   		// Initialize program counter
-		p = 0;
- 	
-    	// Read head
-    	rd = _getfch();
-    	if (rd!=HEADER_0) return 3;
-    	rd = _getfch();
-    	if (rd!=HEADER_1) {
-    		if ((rd==0x1B)||(rd==0x2B)||(rd==0x3B))
-    			return 2;
-    		else
-    			return 3;
-    	}
-    	
-    	// Getting labels
-    	if (_getfch()!=LABELSECTION) return 3;
-    	unsigned int ln = _getfch();
-    	_labels = (unsigned int*)malloc(ln * sizeof(int));
-    	unsigned int c = 0;
-		while (ln--)
-		{
-    			_labels[c] = _getfch() | (_getfch() << 8);
-    			c++;
-		}
-		if (_getfch()!=SEPARATOR) return 3;
-		
-		// Getting interrupts addresses
-		if (_getfch()!=INTERRUPTSECTION) return 3;
-		ln = _getfch();
-		_interrupts = malloc(ln + ln); //ln * sizeof(unsigned int) -> ln * 2 -> ln+ln
-		c = 0;
-		while (ln--)
-		{
-    			_interrupts[c] = _getfch() | (_getfch() << 8);
-    			c++;
-		}
-		if (_getfch()!=SEPARATOR) return 3;
-		
-		// Done
-		return 0;
-	}
-
-    unsigned int _sbi_step(struct sbi_context_t *ctx) 
-    {
-      return _sbi_step_internal(ctx);
-    }
-
-#else
+	Creates a new thread from an SBI stream structure
+	Remember to initialize the thread before starting executing it (_sbi_loadthread)
+*/	
+SBITHREAD* _sbi_createthread(SBISTREAM* stream)
+{
+	// Allocate memory for a new structure
+	SBITHREAD* t = (SBITHREAD*) malloc(sizeof(SBITHREAD));
+    if (!t) return NULL;
+	
+	// Initialize thread
+	t->stream = stream;
+	t->status = STOPPED;
+	t->_userfid = 0;
+	t->_labels = NULL; // Used as thread-loaded indicator
+	
+	// Return created structure
+	return t;
+}
 
 /*
-	Following ONLY IN multithreading mode
+	Initializes the thread by reading the SBI stream header
+	(load labels, interrupt addresses, etc...) and puts it into the threads list
+	
+	Returns:
+        TODO update errors
+		0: 	No errors
+		1: 	No function pointer for _getfch
+		2:	Old version of executable format
+		3:	Invalid program file
+		4:	Can't load thread (threads number overflow)
 */
+unsigned int _sbi_loadthread(SBITHREAD* thread, sbi_runtime_t* rt)
+{
 	
-	SBISTREAM* _sbi_createstream(getfch_func getfch)
-	{
-		// Allocate memory for a new structure
-		SBISTREAM* s = (SBISTREAM*) malloc(sizeof(SBISTREAM));
-		
-		// Initialize stream
-		s->getfch = getfch;
-		s->p = 0;
-		
-		// Return created structure
-		return s;
-	}
-	/*
-		Creates a new thread from an SBI stream structure
-		Remember to initialize the thread before starting executing it (_sbi_loadthread)
-	*/	
-	SBITHREAD* _sbi_createthread(SBISTREAM* stream)
-	{
-		// Allocate memory for a new structure
-		SBITHREAD* t = (SBITHREAD*) malloc(sizeof(SBITHREAD));
-		
-		// Initialize thread
-		t->stream = stream;
-		t->status = STOPPED;
-		t->_userfid = 0;
-		t->_labels = NULL; // Used as thread-loaded indicator
-		
-		// Return created structure
-		return t;
-	}
-	
-	/*
-		Initializes the thread by reading the SBI stream header
-		(load labels, interrupt addresses, etc...) and puts it into the threads list
-		
-		Returns:
-			0: 	No errors
-			1: 	No function pointer for _getfch
-			2:	Old version of executable format
-			3:	Invalid program file
-			4:	Can't load thread (threads number overflow)
-	*/
-	unsigned int _sbi_loadthread(SBITHREAD* thread, struct sbi_context_t *ctx)
-	{
-		// Check function pointers
-		if (!(thread->stream->getfch)) return 1;
-		
-		// Initialize program counter
-		thread->stream->p = 0;
-		
-		// Read head
-		if (_getfch()!=HEADER_0) return 3;
-		rd = _getfch();
-		if (rd!=HEADER_1) {
-			if ((rd==0x1B)||(rd==0x2B)||(rd==0x3B))
-				return 2;
-			else
-				return 3;
-		}
-		
-		// Getting labels
-		if (_getfch()!=LABELSECTION) return 3;
-		unsigned int ln = _getfch();
-		thread->_labels = malloc(ln * sizeof(LABEL));
-		unsigned int c = 0;
-		while (ln--)
+	// Load thread into threads list
+	unsigned int i;
+	byte ok = 0;
+	for (i=0; i<THREADMAXNUM; i++)
+		if (!rt->_sbi_threads[i])
 		{
-    			thread->_labels[c] = _getfch() | (_getfch() << 8);
-    			c++;
+			rt->_sbi_threads[i] = thread;
+			ok = 1;
+			break;
 		}
-		if (_getfch()!=SEPARATOR) return 3;
-		
-		// Getting interrupts addresses
-		if (_getfch()!=INTERRUPTSECTION) return 3;
-		ln = _getfch();
-		thread->_interrupts = malloc(ln * sizeof(INTERRUPT));
-		c = 0;
-		while (ln--)
-		{
-    			thread->_interrupts[c] = _getfch() | (_getfch() << 8);
-    			c++;
-		}
-		if (_getfch()!=SEPARATOR) return 3;
-		
-		// Load thread into threads list
-		unsigned int i;
-		byte ok = 0;
-		for (i=0; i<THREADMAXNUM; i++)
-			if (!_sbi_threads[i])
-			{
-				_sbi_threads[i] = thread;
-				ok = 1;
-				break;
-			}
-		
-		// Check if the thread was loaded
-		if (!ok) return 4;
-		
-		// Done
-		return 0;
-	}
 	
-	void _sbi_removethread(SBITHREAD* thread)
-	{
-		// TODO
-	}
+	// Check if the thread was loaded
+	if (!ok) return 4;
 	
-	/*
-		Steps the specified thread of one instruction (only in multithreading mode)
-	
-		Returns:
-			0: 	No errors
-			1: 	Reached end (no exit found)
-			2: 	Program exited
-			3: 	Wrong instruction code
-			4: 	Can't understand byte
-			5: 	User error
-	*/
-	unsigned int _sbi_step(SBITHREAD* thread, struct sbi_context_t *ctx)
-	{
-		_sbi_currentthread = thread;
+	// Done
+	return 0;
+}
 
-        return _sbi_step_internal(ctx,thread);
-		
-		//_exec = 1;
-		//
-		//rd = (*thread->stream->_getfch)(&thread->stream->p);
-		//switch (rd)
-		//{
-		//	case _istr_assign:
-		//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
-		//		thread->_t[var1] = (*thread->stream->_getfch)(&thread->stream->p);
-		//		break;
-		//	case _istr_move:
-		//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
-		//		thread->_t[var1] = thread->_t[(*thread->stream->_getfch)(&thread->stream->p)];
-		//		break;
-		//	case _istr_add:
-		//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
-		//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
-		//		var2t = (*thread->stream->_getfch)(&thread->stream->p);
-		//		var2 = (*thread->stream->_getfch)(&thread->stream->p);
-		//		thread->_t[(*thread->stream->_getfch)(&thread->stream->p)] = _getval(var1t, var1) + _getval(var2t, var2);
-		//		break;
-		//	case _istr_sub:
-		//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
-		//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
-		//		var2t = (*thread->stream->_getfch)(&thread->stream->p);
-		//		var2 = (*thread->stream->_getfch)(&thread->stream->p);
-		//		thread->_t[(*thread->stream->_getfch)(&thread->stream->p)] = _getval(var1t, var1) - _getval(var2t, var2);
-		//		break;
-		//	case _istr_mul:
-		//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
-		//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
-		//		var2t = (*thread->stream->_getfch)(&thread->stream->p);
-		//		var2 = (*thread->stream->_getfch)(&thread->stream->p);
-		//		thread->_t[(*thread->stream->_getfch)(&thread->stream->p)] = _getval(var1t, var1) * _getval(var2t, var2);
-		//		break;
-		//	case _istr_div:
-		//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
-		//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
-		//		var2t = (*thread->stream->_getfch)(&thread->stream->p);
-		//		var2 = (*thread->stream->_getfch)(&thread->stream->p);
-		//		thread->_t[(*thread->stream->_getfch)(&thread->stream->p)] = _getval(var1t, var1) / _getval(var2t, var2);
-		//		break;
-		//	case _istr_incr:
-		//		thread->_t[(*thread->stream->_getfch)(&thread->stream->p)]++;
-		//		break;
-		//	case _istr_decr:
-		//		thread->_t[(*thread->stream->_getfch)(&thread->stream->p)]--;
-		//		break;
-		//	case _istr_inv:
-		//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
-		//		if (thread->_t[var1]==0) thread->_t[var1]=1; else thread->_t[var1]=0;
-		//		break;
-		//	case _istr_tob:
-		//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
-		//		if (thread->_t[var1]>0) thread->_t[var1]=1; else thread->_t[var1]=0;
-		//		break;
-		//	case _istr_cmp:
-		//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
-		//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
-		//		var2t = (*thread->stream->_getfch)(&thread->stream->p);
-		//		var2 = (*thread->stream->_getfch)(&thread->stream->p);
-		//		if (_getval(var1t, var1)==_getval(var2t, var2)) thread->_t[(*thread->stream->_getfch)(&thread->stream->p)]=1; else thread->_t[(*thread->stream->_getfch)(&thread->stream->p)]=0;
-		//		break;
-		//	case _istr_high:
-		//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
-		//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
-		//		var2t = (*thread->stream->_getfch)(&thread->stream->p);
-		//		var2 = (*thread->stream->_getfch)(&thread->stream->p);
-		//		if (_getval(var1t, var1)>_getval(var2t, var2)) thread->_t[(*thread->stream->_getfch)(&thread->stream->p)]=1; else thread->_t[(*thread->stream->_getfch)(&thread->stream->p)]=0;
-		//		break;
-		//	case _istr_low:
-		//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
-		//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
-		//		var2t = (*thread->stream->_getfch)(&thread->stream->p);
-		//		var2 = (*thread->stream->_getfch)(&thread->stream->p);
-		//		if (_getval(var1t, var1)<_getval(var2t, var2)) thread->_t[(*thread->stream->_getfch)(&thread->stream->p)]=1; else thread->_t[(*thread->stream->_getfch)(&thread->stream->p)]=0;
-		//		break;
-		//	case _istr_jump:
-		//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
-		//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
-		//		if ((*thread->stream->_getfch)(&thread->stream->p) > 0)
-		//		{
-		//			for (i=RETURNADDRESSESN-2; i>0; i--) thread->_returnaddresses[i+1] = thread->_returnaddresses[i];
-		//			thread->_returnaddresses[1] = thread->_returnaddresses[0];
-		//			thread->_returnaddresses[0] = thread->stream->p;
-		//		}
-		//		thread->stream->p = thread->_labels[_getval(var1t, var1)];
-		//		break;
-		//	case _istr_cmpjump:
-		//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
-		//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
-		//		var2t = (*thread->stream->_getfch)(&thread->stream->p);
-		//		var2 = (*thread->stream->_getfch)(&thread->stream->p);
-		//		var3t = (*thread->stream->_getfch)(&thread->stream->p);
-		//		var3 = (*thread->stream->_getfch)(&thread->stream->p);
-		//		if ((*thread->stream->_getfch)(&thread->stream->p) > 0)
-		//		{
-		//			for (i=RETURNADDRESSESN-2; i>0; i--) thread->_returnaddresses[i+1] = thread->_returnaddresses[i];
-		//			thread->_returnaddresses[1] = thread->_returnaddresses[0];
-		//			thread->_returnaddresses[0] = thread->stream->p;
-		//		}
-		//		if (_getval(var1t, var1)==_getval(var2t, var2))
-		//		{
-		//			thread->stream->p = thread->_labels[_getval(var3t, var3)];
-		//		}
-		//		break;
-		//	case _istr_ret:
-		//		thread->stream->p = thread->_returnaddresses[0];
-		//		for (i=1; i<RETURNADDRESSESN; i++) thread->_returnaddresses[i-1] = thread->_returnaddresses[i];
-		//		break;
-		//	case _istr_debug:
-		//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
-		//		_debug(_getval(var1t, (*thread->stream->_getfch)(&thread->stream->p)));
-		//		break;
-		//	case _istr_error:
-		//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
-		//		_error(_getval(var1t, (*thread->stream->_getfch)(&thread->stream->p)));
-		//		return 5;
-		//		break;
-		//	case _istr_sint:
-		//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
-		//		thread->_userfid=_getval(var1t, (*thread->stream->_getfch)(&thread->stream->p));
-		//		break;
-		//	case _istr_int:
-		//		for (i=0; i<16; i++) b[i] = (*thread->stream->_getfch)(&thread->stream->p);
-		//		ctx->sbi_user_funcs[thread->_userfid](b, ctx);
-		//		break;
-		//	case _istr_exit:
-		//		return 2;
-		//		break;
-		//	case FOOTER_0:
-		//		if ((*thread->stream->_getfch)(&thread->stream->p)==FOOTER_1) return 1; else return 4;
-		//	default:
-		//		_error(0xB1);
-		//		return 3;
-		//		break;
-		//}
-		//
-		//_exec = 0;
-		//
-		//if (_intinqueue) _interrupt(_intinqueue - 1); // If there are interrupts in the queue, do it
-		//
-		//return 0;
-	}
+void _sbi_removethread(SBITHREAD* thread)
+{
+	// TODO
+}
+
+/*
+	Steps the specified thread of one instruction (only in multithreading mode)
+
+	Returns:
+		0: 	No errors
+		1: 	Reached end (no exit found)
+		2: 	Program exited
+		3: 	Wrong instruction code
+		4: 	Can't understand byte
+		5: 	User error
+*/
+//unsigned int sbi_step(void * rt)
+//{
+//	_sbi_currentthread = thread;
+//
+//    return _sbi_step_internal(ctx,thread);
 	
-	/*
-		Step all threads of one instruction
-		Returns the number of threads "stepped"
-	*/
-	unsigned int _sbi_stepall(struct sbi_context_t* ctx)
-	{
-		#if !_SBI_MULTITHREADING_EQUALTIME
-			int c = 0;
-			int i;
-			for (i=0; i<THREADMAXNUM; i++)
-				if (_sbi_threads[i])
-				{
-					if (_sbi_threads[i]->status == RUNNING)
-					{
-						unsigned int ret = _sbi_step(_sbi_threads[i], ctx);
-						c++;
-						if (ret)
-						{
-							_sbi_threads[i]->_lasterror = ret;
-							if (ret > 2)
-								_sbi_threads[i]->status = ERROR;
-							else
-								_sbi_threads[i]->status = STOPPED;
-						}
-					}
-				}
-			return c;
-		#else
-			byte done = 0;
-			if (_sbi_threads[_sbi_currentthreadn])
-			{
-				if (_sbi_threads[_sbi_currentthreadn]->status == RUNNING)
-				{
-					unsigned int ret = _sbi_step(_sbi_threads[_sbi_currentthreadn]);
-					done = 1;
-					if (ret)
-					{
-						_sbi_threads[_sbi_currentthreadn]->_lasterror = ret;
-						if (ret > 2)
-							_sbi_threads[_sbi_currentthreadn]->status = ERROR;
-						else
-							_sbi_threads[_sbi_currentthreadn]->status = STOPPED;
-					}
-				}
-			}
-			_sbi_currentthreadn++;
-			if (_sbi_currentthreadn > (THREADMAXNUM - 1)) _sbi_currentthreadn = 0;
-			return (unsigned int)done;
-		#endif
-	}
-	
-	unsigned int _sbi_running(void)
-	{
+	//_exec = 1;
+	//
+	//rd = (*thread->stream->_getfch)(&thread->stream->p);
+	//switch (rd)
+	//{
+	//	case _istr_assign:
+	//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
+	//		thread->_t[var1] = (*thread->stream->_getfch)(&thread->stream->p);
+	//		break;
+	//	case _istr_move:
+	//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
+	//		thread->_t[var1] = thread->_t[(*thread->stream->_getfch)(&thread->stream->p)];
+	//		break;
+	//	case _istr_add:
+	//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
+	//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
+	//		var2t = (*thread->stream->_getfch)(&thread->stream->p);
+	//		var2 = (*thread->stream->_getfch)(&thread->stream->p);
+	//		thread->_t[(*thread->stream->_getfch)(&thread->stream->p)] = _getval(var1t, var1) + _getval(var2t, var2);
+	//		break;
+	//	case _istr_sub:
+	//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
+	//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
+	//		var2t = (*thread->stream->_getfch)(&thread->stream->p);
+	//		var2 = (*thread->stream->_getfch)(&thread->stream->p);
+	//		thread->_t[(*thread->stream->_getfch)(&thread->stream->p)] = _getval(var1t, var1) - _getval(var2t, var2);
+	//		break;
+	//	case _istr_mul:
+	//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
+	//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
+	//		var2t = (*thread->stream->_getfch)(&thread->stream->p);
+	//		var2 = (*thread->stream->_getfch)(&thread->stream->p);
+	//		thread->_t[(*thread->stream->_getfch)(&thread->stream->p)] = _getval(var1t, var1) * _getval(var2t, var2);
+	//		break;
+	//	case _istr_div:
+	//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
+	//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
+	//		var2t = (*thread->stream->_getfch)(&thread->stream->p);
+	//		var2 = (*thread->stream->_getfch)(&thread->stream->p);
+	//		thread->_t[(*thread->stream->_getfch)(&thread->stream->p)] = _getval(var1t, var1) / _getval(var2t, var2);
+	//		break;
+	//	case _istr_incr:
+	//		thread->_t[(*thread->stream->_getfch)(&thread->stream->p)]++;
+	//		break;
+	//	case _istr_decr:
+	//		thread->_t[(*thread->stream->_getfch)(&thread->stream->p)]--;
+	//		break;
+	//	case _istr_inv:
+	//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
+	//		if (thread->_t[var1]==0) thread->_t[var1]=1; else thread->_t[var1]=0;
+	//		break;
+	//	case _istr_tob:
+	//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
+	//		if (thread->_t[var1]>0) thread->_t[var1]=1; else thread->_t[var1]=0;
+	//		break;
+	//	case _istr_cmp:
+	//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
+	//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
+	//		var2t = (*thread->stream->_getfch)(&thread->stream->p);
+	//		var2 = (*thread->stream->_getfch)(&thread->stream->p);
+	//		if (_getval(var1t, var1)==_getval(var2t, var2)) thread->_t[(*thread->stream->_getfch)(&thread->stream->p)]=1; else thread->_t[(*thread->stream->_getfch)(&thread->stream->p)]=0;
+	//		break;
+	//	case _istr_high:
+	//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
+	//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
+	//		var2t = (*thread->stream->_getfch)(&thread->stream->p);
+	//		var2 = (*thread->stream->_getfch)(&thread->stream->p);
+	//		if (_getval(var1t, var1)>_getval(var2t, var2)) thread->_t[(*thread->stream->_getfch)(&thread->stream->p)]=1; else thread->_t[(*thread->stream->_getfch)(&thread->stream->p)]=0;
+	//		break;
+	//	case _istr_low:
+	//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
+	//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
+	//		var2t = (*thread->stream->_getfch)(&thread->stream->p);
+	//		var2 = (*thread->stream->_getfch)(&thread->stream->p);
+	//		if (_getval(var1t, var1)<_getval(var2t, var2)) thread->_t[(*thread->stream->_getfch)(&thread->stream->p)]=1; else thread->_t[(*thread->stream->_getfch)(&thread->stream->p)]=0;
+	//		break;
+	//	case _istr_jump:
+	//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
+	//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
+	//		if ((*thread->stream->_getfch)(&thread->stream->p) > 0)
+	//		{
+	//			for (i=RETURNADDRESSESN-2; i>0; i--) thread->_returnaddresses[i+1] = thread->_returnaddresses[i];
+	//			thread->_returnaddresses[1] = thread->_returnaddresses[0];
+	//			thread->_returnaddresses[0] = thread->stream->p;
+	//		}
+	//		thread->stream->p = thread->_labels[_getval(var1t, var1)];
+	//		break;
+	//	case _istr_cmpjump:
+	//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
+	//		var1 = (*thread->stream->_getfch)(&thread->stream->p);
+	//		var2t = (*thread->stream->_getfch)(&thread->stream->p);
+	//		var2 = (*thread->stream->_getfch)(&thread->stream->p);
+	//		var3t = (*thread->stream->_getfch)(&thread->stream->p);
+	//		var3 = (*thread->stream->_getfch)(&thread->stream->p);
+	//		if ((*thread->stream->_getfch)(&thread->stream->p) > 0)
+	//		{
+	//			for (i=RETURNADDRESSESN-2; i>0; i--) thread->_returnaddresses[i+1] = thread->_returnaddresses[i];
+	//			thread->_returnaddresses[1] = thread->_returnaddresses[0];
+	//			thread->_returnaddresses[0] = thread->stream->p;
+	//		}
+	//		if (_getval(var1t, var1)==_getval(var2t, var2))
+	//		{
+	//			thread->stream->p = thread->_labels[_getval(var3t, var3)];
+	//		}
+	//		break;
+	//	case _istr_ret:
+	//		thread->stream->p = thread->_returnaddresses[0];
+	//		for (i=1; i<RETURNADDRESSESN; i++) thread->_returnaddresses[i-1] = thread->_returnaddresses[i];
+	//		break;
+	//	case _istr_debug:
+	//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
+	//		_debug(_getval(var1t, (*thread->stream->_getfch)(&thread->stream->p)));
+	//		break;
+	//	case _istr_error:
+	//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
+	//		_error(_getval(var1t, (*thread->stream->_getfch)(&thread->stream->p)));
+	//		return 5;
+	//		break;
+	//	case _istr_sint:
+	//		var1t = (*thread->stream->_getfch)(&thread->stream->p);
+	//		thread->_userfid=_getval(var1t, (*thread->stream->_getfch)(&thread->stream->p));
+	//		break;
+	//	case _istr_int:
+	//		for (i=0; i<16; i++) b[i] = (*thread->stream->_getfch)(&thread->stream->p);
+	//		ctx->sbi_user_funcs[thread->_userfid](b, ctx);
+	//		break;
+	//	case _istr_exit:
+	//		return 2;
+	//		break;
+	//	case FOOTER_0:
+	//		if ((*thread->stream->_getfch)(&thread->stream->p)==FOOTER_1) return 1; else return 4;
+	//	default:
+	//		_error(0xB1);
+	//		return 3;
+	//		break;
+	//}
+	//
+	//_exec = 0;
+	//
+	//if (_intinqueue) _interrupt(_intinqueue - 1); // If there are interrupts in the queue, do it
+	//
+	//return 0;
+//}
+
+/*
+	Step all threads of one instruction
+	Returns the number of threads "stepped"
+*/
+unsigned int sbi_step(void *rt)
+{
+	#if !_SBI_MULTITHREADING_EQUALTIME
 		int c = 0;
 		int i;
 		for (i=0; i<THREADMAXNUM; i++)
-			if (_sbi_threads[i])
-				if (_sbi_threads[i]->status == RUNNING)
+			if (RT->_sbi_threads[i])
+			{
+				if (RT->_sbi_threads[i]->status == RUNNING)
+				{
+					unsigned int ret = _sbi_step_internal(_sbi_threads[i], RT);
 					c++;
+					if (ret)
+					{
+						RT->_sbi_threads[i]->_lasterror = ret;
+						if (ret > 2)
+							RT->_sbi_threads[i]->status = ERROR;
+						else
+							RT->_sbi_threads[i]->status = STOPPED;
+					}
+				}
+			}
 		return c;
-	}
-	
-	SBITHREAD* _sbi_getthread(SBITHREADNUM n)
-	{
-		return _sbi_threads[n];
-	}
-	
-	void _sbi_startthread(SBITHREAD* thread)
-	{
-		thread->status = RUNNING;
-	}
-	
-	void _sbi_stopthread(SBITHREAD* thread)
-	{
-		thread->status = STOPPED;
-	}
-	
-	SBITHREADSTATUS _sbi_getthreadstatus(SBITHREAD* thread)
-	{
-		return thread->status;
-	}
-	
-	SBITHREADERROR _sbi_getthreaderror(SBITHREAD* thread)
-	{
-		return thread->_lasterror;
-	}
+	#else
+		byte done = 0;
+		if (RT->_sbi_threads[RT->_sbi_currentthreadn])
+		{
+			if (RT->_sbi_threads[RT->_sbi_currentthreadn]->status == RUNNING)
+			{
+				unsigned int ret = _sbi_step_internal(RT->_sbi_threads[RT->_sbi_currentthreadn],rt);
+				done = 1;
+				if (ret)
+				{
+					RT->_sbi_threads[RT->_sbi_currentthreadn]->_lasterror = ret;
+					if (ret > 2)
+						RT->_sbi_threads[RT->_sbi_currentthreadn]->status = ERROR;
+					else
+						RT->_sbi_threads[RT->_sbi_currentthreadn]->status = STOPPED;
+				}
+			}
+		}
+		RT->_sbi_currentthreadn++;
+		if (RT->_sbi_currentthreadn > (THREADMAXNUM - 1)) RT->_sbi_currentthreadn = 0;
+		return (unsigned int)done;
+	#endif
+}
 
-#endif
-
-void _interrupt(const unsigned int id, struct sbi_context_t* ctx)
+unsigned int sbi_running(void* rt)
 {
-	if (_exec==1) // Some code in execution, queue interrupt
+	int c = 0;
+	int i;
+	for (i=0; i<THREADMAXNUM; i++)
+		if (RT->_sbi_threads[i])
+			if (RT->_sbi_threads[i]->status == RUNNING)
+				c++;
+	return c;
+}
+
+//SBITHREAD* _sbi_getthread(SBITHREADNUM n)
+//{
+//	return _sbi_threads[n];
+//}
+
+void _sbi_startthread(SBITHREAD* thread)
+{
+	thread->status = RUNNING;
+}
+
+void _sbi_stopthread(SBITHREAD* thread)
+{
+	thread->status = STOPPED;
+}
+
+SBITHREADSTATUS _sbi_getthreadstatus(SBITHREAD* thread)
+{
+	return thread->status;
+}
+
+SBITHREADERROR _sbi_getthreaderror(SBITHREAD* thread)
+{
+	return thread->_lasterror;
+}
+
+
+void interrupt(const unsigned int id, void* rt)
+{
+	if (RT->_exec==1) // Some code in execution, queue interrupt
 	{
 		_intinqueue = id + 1;
 		return;
 	}
+    int i;	
+	for (i=RETURNADDRESSESN-2; i>0; i--) RT->_sbi_currentthread->_returnaddresses[i+1] = RT->_sbi_currentthread->_returnaddresses[i];
+	RT->_sbi_currentthread->_returnaddresses[1] = RT->_sbi_currentthread->_returnaddresses[0];
+	RT->_sbi_currentthread->_returnaddresses[0] = RT->_sbi_currentthread->stream->p;
 	
-	#ifndef _SBI_MULTITHREADING_ENABLE
-		for (i=RETURNADDRESSESN-2; i>0; i--) _returnaddresses[i+1] = _returnaddresses[i];
-		_returnaddresses[1] = _returnaddresses[0];
-		_returnaddresses[0] = p;
-		
-		p = _interrupts[id]; // Set the program counter to interrupt's address
-		
-		_intinqueue = 0; // Be sure to clean the queue
-	#else
-		for (i=RETURNADDRESSESN-2; i>0; i--) _sbi_currentthread->_returnaddresses[i+1] = _sbi_currentthread->_returnaddresses[i];
-		_sbi_currentthread->_returnaddresses[1] = _sbi_currentthread->_returnaddresses[0];
-		_sbi_currentthread->_returnaddresses[0] = _sbi_currentthread->stream->p;
-		
-		_sbi_currentthread->stream->p = _sbi_currentthread->_interrupts[id]; // Set the program counter to interrupt's address
-		
-		_intinqueue = 0; // Be sure to clean the queue
-	#endif
+	RT->_sbi_currentthread->stream->p = RT->_sbi_currentthread->_interrupts[id]; // Set the program counter to interrupt's address
+	
+	_intinqueue = 0; // Be sure to clean the queue
 	
 	return;
 }

@@ -138,7 +138,7 @@ void cerror(string command, CERRORTYPE type)
 	switch (type)
 	{
 		case WRONGNUM:
-			cerror(command, WRONGNUM);
+            printf("%i: (%s) Wrong number of parameters\n", linen, command.c_str()); 
 			break;
 		case WRONGTYPE:
 			printf("%i: (%s) Wrong type of parameters\n", linen, command.c_str());
@@ -392,11 +392,12 @@ int pline(string command, int argn, vector<string>& args)
 		return 0;
 	}
     if (command.compare("thread")==0) {
-		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
-		if (argt[0]!=_value) { cerror(command, WRONGTYPE); return 1; }
+		if (argn!=2) { cerror(command, WRONGNUM); return 1; }
+        if (argt[1]!=_varid) { cerror(command, WRONGTYPE); return 1; }
         wb(_istr_thread);
         wb(argt[0]);
         wb(argv[0]);
+        wb(argv[1]);
         return 0;
     }
 	if (command.compare("exit")==0)

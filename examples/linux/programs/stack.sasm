@@ -7,20 +7,31 @@ jump 2 0; jmp to program main
 ; test function takes two parameters on the stack
 ; adds them and returns the value on the stack
 
-label 1;
-pop _t1;
-pop _t2;
-add _t1 _t2 _t3;
-push _t3;
+label 1; this function obliterates _r0, _r1, _r2
+pop _r0;
+pop _r1;
+
+add _r0 _r1 _r2;
+push _r2;
 ret;
 
 label 2; program main
 
-push _t0;
-push 21;
-jump 1 1; call function 1
-pop _t4; t4 now has result
-debug _t4;
+assign _r0 10; // some arbitrary value we care greatly about
+assign _r1 20; // another value
+push _r0; // store that off since label1 destroyes it
+push _r1; 
+
+push _t0; // push a global variable
+push 21; // push a constant
+jump 1 1; call function 1 
+pop _r3; // this is the function result
+pop _r1; // restore _r1 
+pop _r0; // restore _r0
+
+debug _r0;
+debug _r1;
+debug _r3;
 exit;
 
 

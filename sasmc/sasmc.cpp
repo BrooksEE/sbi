@@ -150,6 +150,9 @@ void cerror(string command, CERRORTYPE type)
 	}
 }
 
+// helper compare argt[i] for _varid or _regid
+#define VARORREG(i) (argt[i]==_varid||argt[i]==_regid)
+
 /*
 	Compilation functions
 */
@@ -166,13 +169,17 @@ int pline(string command, int argn, vector<string>& args)
 	}
 	for (i=0; i<argn; i++)
 	{
-		if ((args[i][0]=='_')&&(args[i][1]=='t'))
+		if ((args[i][0]=='_')&&
+            ((args[i][1]=='t') ||
+             (args[i][1]=='r'))
+           )
 		{
 			string s=args[i].substr(2);
-			argt[p]=_varid;
+			argt[p]=args[i][1]=='t'?_varid:_regid;
 			argv[p]=atoi(s.c_str());
 			p++;
-		} else {
+		} else 
+        {
 			argt[p]=_value;
 			argv[p]=atoi(args[i].c_str());
 			p++;
@@ -181,8 +188,9 @@ int pline(string command, int argn, vector<string>& args)
 	if (command.compare("assign")==0)
 	{
 		if (argn!=2) { cerror(command, WRONGNUM); return 1; }
-		if ((argt[0]!=_varid)||(argt[1]!=_value)) { cerror(command, WRONGTYPE); return 1; }
+		if (!VARORREG(0)||(argt[1]!=_value)) { cerror(command, WRONGTYPE); return 1; }
 		wb(_istr_assign);
+        wb(argt[0]);
 		wb(argv[0]);
 		wb(argv[1]);
 		return 0;
@@ -190,57 +198,63 @@ int pline(string command, int argn, vector<string>& args)
 	if (command.compare("move")==0)
 	{
 		if (argn!=2) { cerror(command, WRONGNUM); return 1; }
-		if ((argt[0]!=_varid)||(argt[1]!=_varid)) { cerror(command, WRONGTYPE); return 1; }
+		if (!VARORREG(0)||!VARORREG(1)) { cerror(command, WRONGTYPE); return 1; }
 		wb(_istr_move);
+        wb(argt[0]);
 		wb(argv[0]);
+        wb(argt[1]);
 		wb(argv[1]);
 		return 0;
 	}
 	if (command.compare("add")==0)
 	{
 		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
-		if (argt[2]!=_varid) { cerror(command, WRONGTYPE); return 1; }
+		if (!VARORREG(2)) { cerror(command, WRONGTYPE); return 1; }
 		wb(_istr_add);
 		wb(argt[0]);
 		wb(argv[0]);
 		wb(argt[1]);
 		wb(argv[1]);
+        wb(argt[2]);
 		wb(argv[2]);
 		return 0;
 	}
 	if (command.compare("sub")==0)
 	{
 		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
-		if (argt[2]!=_varid) { cerror(command, WRONGTYPE); return 1; }
+		if (!VARORREG(2)) { cerror(command, WRONGTYPE); return 1; }
 		wb(_istr_sub);
 		wb(argt[0]);
 		wb(argv[0]);
 		wb(argt[1]);
 		wb(argv[1]);
+        wb(argt[2]);
 		wb(argv[2]);
 		return 0;
 	}
 	if (command.compare("mul")==0)
 	{
 		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
-		if (argt[2]!=_varid) { cerror(command, WRONGTYPE); return 1; }
+		if (!VARORREG(2)) { cerror(command, WRONGTYPE); return 1; }
 		wb(_istr_mul);
 		wb(argt[0]);
 		wb(argv[0]);
 		wb(argt[1]);
 		wb(argv[1]);
+        wb(argt[2]);
 		wb(argv[2]);
 		return 0;
 	}
 	if (command.compare("div")==0)
 	{
 		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
-		if (argt[2]!=_varid) { cerror(command, WRONGTYPE); return 1; }
+		if (!VARORREG(2)) { cerror(command, WRONGTYPE); return 1; }
 		wb(_istr_div);
 		wb(argt[0]);
 		wb(argv[0]);
 		wb(argt[1]);
 		wb(argv[1]);
+        wb(argt[2]);
 		wb(argv[2]);
 		return 0;
 	}
@@ -255,77 +269,87 @@ int pline(string command, int argn, vector<string>& args)
     if (command.compare("pop")==0) 
     {
         if (argn>1) { cerror(command, WRONGNUM); return 1; }
-        if (argn==1 && argt[0] != _varid) { cerror(command,WRONGTYPE); return 1; }
+        if (argn==1 && !VARORREG(0)) { cerror(command,WRONGTYPE); return 1; }
         wb(_istr_pop);
         wb(argn);
-        if (argn>0) wb(argv[0]);
+        if (argn>0) {
+            wb(argt[0]);
+            wb(argv[0]);
+        }
         return 0;
     }
 	if (command.compare("incr")==0)
 	{
 		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
-		if (argt[0]!=_varid) { cerror(command, WRONGTYPE); return 1; }
+		if (!VARORREG(0)) { cerror(command, WRONGTYPE); return 1; }
 		wb(_istr_incr);
+        wb(argt[0]);
 		wb(argv[0]);
 		return 0;
 	}
 	if (command.compare("decr")==0)
 	{
 		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
-		if (argt[0]!=_varid) { cerror(command, WRONGTYPE); return 1; }
+		if (!VARORREG(0)) { cerror(command, WRONGTYPE); return 1; }
 		wb(_istr_decr);
+        wb(argt[0]);
 		wb(argv[0]);
 		return 0;
 	}
 	if (command.compare("inv")==0)
 	{
 		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
-		if (argt[0]!=_varid) { cerror(command, WRONGTYPE); return 1; }
+		if (!VARORREG(0)) { cerror(command, WRONGTYPE); return 1; }
 		wb(_istr_inv);
+        wb(argt[0]);
 		wb(argv[0]);
 		return 0;
 	}
 	if (command.compare("tob")==0)
 	{
 		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
-		if (argt[0]!=_varid) { cerror(command, WRONGTYPE); return 1; }
+		if (!VARORREG(0)) { cerror(command, WRONGTYPE); return 1; }
 		wb(_istr_tob);
+        wb(argt[1]);
 		wb(argv[0]);
 		return 0;
 	}
 	if (command.compare("cmp")==0)
 	{
 		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
-		if (argt[2]!=_varid) { cerror(command, WRONGTYPE); return 1; }
+		if (!VARORREG(2)) { cerror(command, WRONGTYPE); return 1; }
 		wb(_istr_cmp);
 		wb(argt[0]);
 		wb(argv[0]);
 		wb(argt[1]);
 		wb(argv[1]);
+        wb(argt[2]);
 		wb(argv[2]);
 		return 0;
 	}
 	if (command.compare("high")==0)
 	{
 		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
-		if (argt[2]!=_varid) { cerror(command, WRONGTYPE); return 1; }
+		if (!VARORREG(2)) { cerror(command, WRONGTYPE); return 1; }
 		wb(_istr_high);
 		wb(argt[0]);
 		wb(argv[0]);
 		wb(argt[1]);
 		wb(argv[1]);
+        wb(argt[2]);
 		wb(argv[2]);
 		return 0;
 	}
 	if (command.compare("low")==0)
 	{
 		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
-		if (argt[2]!=_varid) { cerror(command, WRONGTYPE); return 1; }
+		if (!VARORREG(2)) { cerror(command, WRONGTYPE); return 1; }
 		wb(_istr_low);
 		wb(argt[0]);
 		wb(argv[0]);
 		wb(argt[1]);
 		wb(argv[1]);
+        wb(argt[2]);
 		wb(argv[2]);
 		return 0;
 	}
@@ -420,7 +444,7 @@ int pline(string command, int argn, vector<string>& args)
     }
     if (command.compare("wait")==0) {
         if (argn!=1) { cerror(command, WRONGNUM); return 1; }
-        if (argt[0] != _varid) { cerror(command, WRONGTYPE); return 1; }
+        if (!VARORREG(0)) { cerror(command, WRONGTYPE); return 1; }
         wb(_istr_wait);
         wb(argv[0]);
         return 0;

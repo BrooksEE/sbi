@@ -40,6 +40,7 @@
 	#define _istr_exit						0xFF
 	
 	#define _varid							0x04
+    #define _regid                          0x05
 	#define _value							0xF4
 
 #endif

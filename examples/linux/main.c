@@ -40,7 +40,7 @@ int main(int argc, char** argv)
 	if (ret==1) printf("Initialization error (no function pointers)\n");
 	if (ret==2) printf("Initialization error (old format version)\n");
 	if (ret==3) printf("Initialization error (invalid program file)\n");
-	if (ret>3) printf("Initialization error (unknow: %i)\n", ret);
+	if (ret>3) printf("Initialization error (unknown: %i)\n", ret);
 	
 	if (ret>0) return 1;
 	

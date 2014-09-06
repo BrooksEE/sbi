@@ -40,7 +40,8 @@ typedef struct
 	RETADDR _returnaddresses[RETURNADDRESSESN];
     unsigned int raddr_cnt;
 	USERFUNCID _userfid;
-    byte registers[REG_SIZE];
+    VARIABLE _r[REG_SIZE];
+    VARIABLE *_t; // ptr to global variables
     byte stack[STACK_SIZE];
     unsigned int stackp;
 } SBITHREAD;
@@ -65,7 +66,7 @@ typedef struct
 
 // multi threading internal functions
 unsigned int _sbi_new_thread_at(PCOUNT, sbi_runtime_t*);
-SBITHREAD* _sbi_createthread(PCOUNT);
+SBITHREAD* _sbi_createthread(PCOUNT, sbi_runtime_t*);
 unsigned int _sbi_loadthread(SBITHREAD* thread, sbi_runtime_t*);
 void _sbi_removethread(SBITHREAD* thread, sbi_runtime_t*);
 SBITHREAD* _sbi_getthread(SBITHREADNUM n);
@@ -80,7 +81,6 @@ SBITHREADERROR _sbi_getthreaderror(SBITHREAD* thread);
 #define _debug(d)				RT->ctx->debugn(d,rt)
 #define _error(d)				RT->ctx->errorn(d,rt)
 #define _getfch()               RT->ctx->getfch(thread->p++, rt)
-#define _T                      RT->_t
 // for casting void* to runtime
 #define RT ((sbi_runtime_t*)rt)
 #define _RETADDRS               thread->_returnaddresses
@@ -102,9 +102,12 @@ INTERRUPT _intinqueue = 0;
 /*
 	Gets the value of a parameter
  */
-byte _getval(const byte type, const byte val, void* rt )
+byte _getval(const byte type, const byte val, void* t )
 {
-	if (type==_varid) return RT->_t[val]; else return val;
+    SBITHREAD *thread=(SBITHREAD*)t;
+	if (type==_varid) return thread->_t[val];
+    if (type==_regid) return thread->_r[val];
+    return val;
 }
 
 /*
@@ -115,15 +118,20 @@ byte _getval(const byte type, const byte val, void* rt )
 			1: 	The specified parameter
 			is not a variable
  */
-unsigned int _setval(const byte type, const byte num, const byte val, void* rt) 
+unsigned int _setval(const byte type, const byte num, const byte val, void* t) 
 {
+    SBITHREAD *thread=(SBITHREAD*)t;
     if (type==_varid)
     {
-    	RT->_t[num]=val;
+    	thread->_t[num]=val;
     	return 0;
-    } else {
-    	return 1;
     }
+    if (type==_regid) {
+        thread->_r[num]=val;
+        return 0;
+    }
+
+    return 1;
 }
 
 
@@ -154,7 +162,7 @@ unsigned int sbi_begin(void *rt) {
 
     // create the main thread
 	
-	SBITHREAD* thread = _sbi_createthread(0);
+	SBITHREAD* thread = _sbi_createthread(0, rt);
     if (!thread) return 1;
 	
     if (!RT->ctx->getfch) return 1;
@@ -200,7 +208,7 @@ unsigned int sbi_begin(void *rt) {
 }
 
 unsigned int _sbi_new_thread_at(PCOUNT p, sbi_runtime_t* rt) {
-    SBITHREAD *t = _sbi_createthread(p);
+    SBITHREAD *t = _sbi_createthread(p, rt);
     int ret = _sbi_loadthread(t, rt);
     if (!ret) _sbi_startthread(t);
     return ret;
@@ -229,41 +237,45 @@ unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 	switch (rd)
 	{
 		case _istr_assign:
+            var1t= _getfch();
 			var1 = _getfch();
-			_T[var1] = _getfch();
+			_setval(var1t,var1,_getfch(), thread);
 			break;
 		case _istr_move:
+            var1t = _getfch();
 			var1 = _getfch();
-			_T[var1] = _T[_getfch()];
+            var2t = _getfch();
+            var2 = _getfch();
+            _setval ( var1t, var1,
+                      _getval(var2t,var2, thread),
+                      thread );
 			break;
 		case _istr_add:
-			var1t = _getfch();
-			var1 = _getfch();
-			var2t = _getfch();
-			var2 = _getfch();
-			_T[_getfch()] = _getval(var1t, var1, rt) + _getval(var2t, var2, rt);
-			break;
 		case _istr_sub:
+        case _istr_mul:
+        case _istr_div:
+        case _istr_cmp:
+        case _istr_high:
+        case _istr_low:
 			var1t = _getfch();
 			var1 = _getfch();
 			var2t = _getfch();
 			var2 = _getfch();
-			_T[_getfch()] = _getval(var1t, var1, rt) - _getval(var2t, var2, rt);
-			break;
-		case _istr_mul:
-			var1t = _getfch();
-			var1 = _getfch();
-			var2t = _getfch();
-			var2 = _getfch();
-			_T[_getfch()] = _getval(var1t, var1, rt) * _getval(var2t, var2, rt);
-			break;
-		case _istr_div:
-			var1t = _getfch();
-			var1 = _getfch();
-			var2t = _getfch();
-			var2 = _getfch();
-            // TODO check div by 0
-			_T[_getfch()] = _getval(var1t, var1, rt) / _getval(var2t, var2, rt);
+            var3t = _getfch();
+            var3 = _getfch();
+            byte v1=_getval(var1t,var1, thread); 
+            byte v2=_getval(var2t,var2, thread);
+            byte val = rd == _istr_add ? v1+v2 :
+                       rd == _istr_sub ? v1-v2 :
+                       rd == _istr_mul ? v1*v2 :
+                       rd == _istr_div ? v1/v2 :
+                       rd == _istr_cmp ? (v1==v2?1:0) :
+                       rd == _istr_high ? (v1>v2?1:0) :
+                       rd == _istr_low ? (v1<v2?1:0) :
+                       0;
+            _setval( var3t, var3, 
+                     val,
+                     thread );
 			break;
         case _istr_push:
             if (thread->stackp>=STACK_SIZE-1) {
@@ -272,7 +284,7 @@ unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
             }
             var1t=_getfch();
             var1 = _getfch();
-            thread->stack[thread->stackp++] = _getval(var1t,var1,rt);
+            thread->stack[thread->stackp++] = _getval(var1t,var1,thread);
             break;
         case _istr_pop:
             {
@@ -281,48 +293,31 @@ unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
                     return 3;
                 }
                 byte n = _getfch();
-                byte val = thread->stack[--thread->stackp];
+                --thread->stackp;
                 if (n) {
+                    byte val = thread->stack[thread->stackp];
+                    var1t=_getfch();
                     var1=_getfch();
-                    _setval(_varid,var1,val,rt);
+                    _setval(var1t,var1,val,thread);
                 }
             }
             break;
 		case _istr_incr:
-			_T[_getfch()]++;
-			break;
 		case _istr_decr:
-			_T[_getfch()]--;
-			break;
-		case _istr_inv:
-			var1 = _getfch();
-			if (_T[var1]==0) _T[var1]=1; else _T[var1]=0;
-			break;
-		case _istr_tob:
-			var1 = _getfch();
-			if (_T[var1]>0) _T[var1]=1; else _T[var1]=0;
-			break;
-		case _istr_cmp:
-			var1t = _getfch();
-			var1 = _getfch();
-			var2t = _getfch();
-			var2 = _getfch();
-			if (_getval(var1t, var1, rt)==_getval(var2t, var2, rt)) _T[_getfch()]=1; else _T[_getfch()]=0;
-			break;
-		case _istr_high:
-			var1t = _getfch();
-			var1 = _getfch();
-			var2t = _getfch();
-			var2 = _getfch();
-			if (_getval(var1t, var1, rt)>_getval(var2t, var2, rt)) _T[_getfch()]=1; else _T[_getfch()]=0;
-			break;
-		case _istr_low:
-			var1t = _getfch();
-			var1 = _getfch();
-			var2t = _getfch();
-			var2 = _getfch();
-			if (_getval(var1t, var1, rt)<_getval(var2t, var2, rt)) _T[_getfch()]=1; else _T[_getfch()]=0;
-			break;
+        case _istr_inv:
+        case _istr_tob:
+            {
+                var1t=_getfch();
+                var1=_getfch();
+                byte val = _getval( var1t, var1, thread);
+                val = rd == _istr_incr ? val+1 :
+                      rd == _istr_decr ? val-1 :
+                      rd == _istr_inv ? !val :
+                      rd == _istr_tob ? (val?1:0) :
+                      0;
+                _setval(var1t,var1,val,thread);
+            }
+            break;
 		case _istr_jump:
 			var1t = _getfch();
 			var1 = _getfch();
@@ -333,7 +328,7 @@ unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 				_RETADDRS[0] = CUR_PCOUNT;
                 ++thread->raddr_cnt;
 			}
-			CUR_PCOUNT = _LABELS[_getval(var1t, var1, rt)];
+			CUR_PCOUNT = _LABELS[_getval(var1t, var1, thread)];
 			break;
 		case _istr_cmpjump:
 			var1t = _getfch();
@@ -349,9 +344,9 @@ unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 				_RETADDRS[0] = CUR_PCOUNT;
                 ++thread->raddr_cnt;
 			}
-			if (_getval(var1t, var1, rt)==_getval(var2t, var2, rt))
+			if (_getval(var1t, var1, thread)==_getval(var2t, var2, thread))
 			{
-				CUR_PCOUNT = _LABELS[_getval(var3t, var3, rt)];
+				CUR_PCOUNT = _LABELS[_getval(var3t, var3, thread)];
 			}
 			break;
 		case _istr_ret:
@@ -366,16 +361,16 @@ unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 			break;
 		case _istr_debug:
 			var1t = _getfch();
-			_debug(_getval(var1t, _getfch(), rt));
+			_debug(_getval(var1t, _getfch(), thread));
 			break;
 		case _istr_error:
 			var1t = _getfch();
-			_error(_getval(var1t, _getfch(), rt));
+			_error(_getval(var1t, _getfch(), thread));
 			return 5;
 			break;
 		case _istr_sint:
 			var1t = _getfch();
-			thread->_userfid=_getval(var1t, _getfch(), rt);
+			thread->_userfid=_getval(var1t, _getfch(), thread);
 			break;
 		case _istr_int:
             {
@@ -389,16 +384,16 @@ unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
                 var1t = _getfch();
                 var1 = _getfch();
                 var2 = _getfch();
-                int ret = _sbi_new_thread_at(_LABELS[_getval(var1t,var1,rt)], rt);
+                int ret = _sbi_new_thread_at(_LABELS[_getval(var1t,var1,thread)], rt);
                 byte tId = !ret ? rt->new_threadid : 0;
-                _setval( _varid, var2, tId, rt );
+                _setval( _varid, var2, tId, thread );
                 if (ret) _error(ret);
             }
             break;
         case _istr_wait:
             {
                 var1 = _getfch();
-                byte tId = _getval(_varid,var1,rt);
+                byte tId = _getval(_varid,var1,thread);
                 for (i=0;i<rt->thread_cnt;++i) {
                     if ( rt->_sbi_threads[i]->threadid == tId &&
                          rt->_sbi_threads[i]->status == RUNNING ) {
@@ -432,7 +427,7 @@ unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 	Creates a new thread from an SBI stream structure
 	Remember to initialize the thread before starting executing it (_sbi_loadthread)
 */	
-SBITHREAD* _sbi_createthread(PCOUNT p)
+SBITHREAD* _sbi_createthread(PCOUNT p, sbi_runtime_t *rt)
 {
 	// Allocate memory for a new structure
 	SBITHREAD* t = (SBITHREAD*) malloc(sizeof(SBITHREAD));
@@ -444,6 +439,7 @@ SBITHREAD* _sbi_createthread(PCOUNT p)
 	t->_userfid = 0;
     t->raddr_cnt=0;
     t->stackp = 0;
+    t->_t=rt->_t;
 	
 	// Return created structure
 	return t;

@@ -17,8 +17,8 @@ ret;
 
 label 2; program main
 
-assign _r0 10; // some arbitrary value we care greatly about
-assign _r1 20; // another value
+assign _r0 0xab; // some arbitrary value we care greatly about
+assign _r1 0xcd; // another value
 push _r0; // store that off since label1 destroyes it
 push _r1; 
 

@@ -181,7 +181,9 @@ int pline(string command, int argn, vector<string>& args)
 		} else 
         {
 			argt[p]=_value;
-			argv[p]=atoi(args[i].c_str());
+            bool base16 = args[i].size()>2 &&
+                          args[i].substr(0,2).compare("0x")==0;
+			argv[p]=strtol(args[i].c_str(),NULL, base16?16:10);
 			p++;
 		}
 	}

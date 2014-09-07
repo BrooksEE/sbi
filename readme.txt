@@ -1,10 +1,4 @@
 SBI - Small Bytecode Interpreter
-
-This is a fork of the original project on sourceforge.
-http://sourceforge.net/projects/sbi-int/
-
-Work in progress to make more robust, enhance as necessary for more general usage.
-
 by Gi@cky98
 
 Version 0.2

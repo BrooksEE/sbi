@@ -1,16 +1,8 @@
-TARGET=sasmc
-
-SRC=sasmc.c tokenizer.c
-HEADERS=$(wildcard *.h)
-OBJS=$(patsubst %.c, %.o, $(SRC))
-
-all: $(TARGET) 
-
-$(TARGET): $(OBJS)
-	g++ -o $@ $^
-
-%.o: %.c $(HEADERS)
-	g++ -c -o $@ $^
-
+sasmc.exe: sasmc.o tokenizer.o
+	g++ -o sasmc.exe sasmc.o tokenizer.o
+sasmc.o: sasmc.cpp tokenizer.h
+	g++ -c -o sasmc.o sasmc.cpp
+tokenizer.o: tokenizer.cpp tokenizer.h
+	g++ -c -o tokenizer.o tokenizer.cpp
 clean:
-	rm -f $(TARGET) $(OBJS) 
+	rm -f sasmc.exe sasmc.o tokenizer.o

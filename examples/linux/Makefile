@@ -7,7 +7,7 @@ OBJS=$(patsubst %.c, %.o, $(SRC))
 %.o:%.c $(SBIDIR)/sbi.h
 	gcc $(CCFLAGS) -c -o $@ -I$(SBIDIR) $<
 
-progsrc=$(wildcard programs/*.sasm)
+progsrc=$(wildcard programs/*.sasm programs_mt/*.sasm)
 sbis=$(patsubst %.sasm, %.sbi, $(progsrc))
 SASMC=../../sasmc/sasmc
 

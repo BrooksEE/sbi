@@ -530,6 +530,7 @@ unsigned int sbi_step(void *rt)
 				ret = _sbi_step_internal(thread,rt);
 				if (ret)
 				{
+                    _TRACE ( "Thread (%d) exit: %d\n", thread->threadid, ret );
                     _sbi_removethread(thread,RT);
                     thread=NULL;
                     if (ret == 2) {

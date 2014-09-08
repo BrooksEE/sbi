@@ -1,25 +1,41 @@
 ; Pow example
 ;
-; Executes the t1 pow of t0
-;
+; executes two power functions on two different threads. 
 
 ; Initialization
-assign _t0 2 ; Base
-assign _t1 3 ; 'Esponente'
 
-assign _t3 1 ; t3 = result = 1
+thread 1 _r0;
+thread 2 _r1;
+wait _r0;
+wait _r1;
+exit;
 
-; Prints the 2 numbers
-debug _t0
-debug _t1
+label 1;
+push 3; exponent
+push 2; base
+jump 0 1;
+pop _r0
+debug _r0;
+ret;
 
-label 0 ; Loop label (0)
-	mul _t3 _t0 _t3 ; t3 = t3 * base (t0)
-	decr _t1 ; Decrements 'esponente'
-	cmp _t1 0 _t2
-	cmpjump _t2 0 0 0 ; If 'esponente' isn't equal to 0 jump to label 0
+label 2;
+push 5;
+push 3;
+jump 0 1
+pop _r0;
+debug _r0;
+ret;
+
+label 0; pow function
+    pop _r0 ; base
+    pop _r1 ; exponent
+    move _r2 1; start at 1 
+    label 4;    
+	mul _r2 _r0 _r2 ; r2 = r2 * base (r0)
+	decr _r1 ; Decrements 'esponente'
+	cmp _r1 0 _r3
+	cmpjump _r3 0 4 0 ; If 'esponente' isn't equal to 0 jump to label 0
 	; Explain: repeats the loop for 'esponente' times
+    push _r2;
+    ret;
 
-debug _t3 ; Prints final result (t3)
-
-exit ; Exits the program

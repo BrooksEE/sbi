@@ -8,12 +8,24 @@ jump 1 1 ; Calls subroutine 1
 debug 255 ; Prints '255' (end)
 exit ; Exits
 
+label 4; a thread
+ move _r0 0
+ ; count to 100
+ label 5;
+ incr _r0;
+ low _r0 100 _r1;
+ cmpjump _r1 1 5 0;
+ debug 0x66
+ ret;
+
 label 3 ; Subroutine 3
+    wait _t0; wait for the thread started in 1 
 	debug 3 ; Prints '3' (subroutine number)
 	ret ; Returns
 
 label 1 ; Subroutine 1
 	debug 1 ; Prints '1' (subroutine number - before concatenated call)
+    thread 4 _t0; // start a thread from subroutine 1
 	jump 2 1 ; Calls subroutine 2
 	debug 10 ; Prints '10' (subroutine number - after concatenated call)
 	ret ; Returns

@@ -12,11 +12,13 @@
 #include <string.h> // memset
 #include <stdbool.h>
 
-#ifdef DEBUG
+#ifdef TRACE 
  #include <stdio.h>
  #define _ERR printf
+ #define _TRACE printf
 #else
  #define _ERR(...)
+ #define _TRACE(...)
 #endif
     
 // SBI  stuctures
@@ -43,7 +45,6 @@ typedef struct
     PCOUNT p;
 	SBITHREADSTATUS status;
 	SBITHREADERROR _lasterror;
-	INTERRUPT* _interrupts;
 	RETADDR _returnaddresses[RETURNADDRESSESN];
     unsigned int raddr_cnt;
 	USERFUNCID _userfid;
@@ -62,6 +63,8 @@ typedef struct
     SBITHREAD* _sbi_currentthread;
 	VARIABLE _t[VARIABLESNUM];
 	LABEL* _labels;
+	INTERRUPT* _interrupts;
+    INTERRUPT _intinqueue;
     #if _SBI_MULTITHREADING_EQUALTIME
     	SBITHREADNUM _sbi_currentthreadn;
     #endif
@@ -93,18 +96,6 @@ SBITHREADERROR _sbi_getthreaderror(SBITHREAD* thread);
 #define _RETADDRS               thread->_returnaddresses
 #define CUR_PCOUNT              thread->p
 #define _LABELS                 RT->_labels
-
-// Interrupts
-// TODO how do interrupts work with just one program?
-// they happen independent of any thread?
-// or perhaps they happen on the main thread.
-#if 0 //def _SBI_MULTITHREADING_ENABLE
-	SBITHREAD** _interrupts_threads;
-#else
-	INTERRUPT* _interrupts;
-#endif
-
-INTERRUPT _intinqueue = 0;
 
 /*
 	Gets the value of a parameter
@@ -199,11 +190,11 @@ unsigned int sbi_begin(void *rt) {
 	// Getting interrupts addresses
 	if (_getfch()!=INTERRUPTSECTION) return 3;
 	ln = _getfch();
-	thread->_interrupts = malloc(ln * sizeof(INTERRUPT));
+	RT->_interrupts = malloc(ln * sizeof(INTERRUPT));
 	c = 0;
 	while (ln--)
 	{
-			thread->_interrupts[c] = _getfch() | (_getfch() << 8);
+			RT->_interrupts[c] = _getfch() | (_getfch() << 8);
 			c++;
 	}
 	if (_getfch()!=SEPARATOR) return 3;
@@ -241,6 +232,7 @@ unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 	RT->_exec = 1;
 	
 	rd = _getfch();
+    _TRACE("Instruction code 0x%02x at pcount: 0x%02x thread %d\n", rd, CUR_PCOUNT-1, thread->threadid );
 	switch (rd)
 	{
 		case _istr_assign:
@@ -330,10 +322,7 @@ unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 			var1 = _getfch();
 			if (_getfch() > 0)
 			{
-				for (i=RETURNADDRESSESN-2; i>0; i--) _RETADDRS[i+1] = _RETADDRS[i];
-				_RETADDRS[1] = _RETADDRS[0];
-				_RETADDRS[0] = CUR_PCOUNT;
-                ++thread->raddr_cnt;
+                _RETADDRS[thread->raddr_cnt++] = CUR_PCOUNT;
 			}
 			CUR_PCOUNT = _LABELS[_getval(var1t, var1, thread)];
 			break;
@@ -344,23 +333,19 @@ unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 			var2 = _getfch();
 			var3t = _getfch();
 			var3 = _getfch();
-			if (_getfch() > 0)
-			{
-				for (i=RETURNADDRESSESN-2; i>0; i--) _RETADDRS[i+1] = _RETADDRS[i];
-				_RETADDRS[1] = _RETADDRS[0];
-				_RETADDRS[0] = CUR_PCOUNT;
-                ++thread->raddr_cnt;
-			}
+            i=_getfch(); // push ret
 			if (_getval(var1t, var1, thread)==_getval(var2t, var2, thread))
 			{
+			    if (i > 0)
+			    {
+                    _RETADDRS[thread->raddr_cnt++] = CUR_PCOUNT;
+			    }
 				CUR_PCOUNT = _LABELS[_getval(var3t, var3, thread)];
-			}
+			} 
 			break;
 		case _istr_ret:
             if (thread->raddr_cnt>0) {
-			    CUR_PCOUNT = _RETADDRS[0];
-    			for (i=1; i<RETURNADDRESSESN; i++) _RETADDRS[i-1] = _RETADDRS[i];
-                --thread->raddr_cnt;
+			    CUR_PCOUNT = _RETADDRS[--thread->raddr_cnt];
             } else {
                 // thread exit
                 return 1;
@@ -419,15 +404,13 @@ unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 			if (_getfch()==FOOTER_1) return 1; else return 4;
 		default:
 			_error(0xB1);
-            _ERR("Instruction Error %02x at pcount: %d thread %d\n", rd, CUR_PCOUNT, thread->threadid );
+            _ERR("Instruction error 0x%02x at pcount: 0x%02x thread %d\n", rd, CUR_PCOUNT-1, thread->threadid );
 			return 3;
 			break;
 	}
 	
 	RT->_exec = 0;
 	
-    // TODO eval interrupts
-	if (_intinqueue) interrupt(_intinqueue - 1, rt); // If there are interrupts in the queue, do it
 	
 	return 0;
 }
@@ -489,7 +472,6 @@ void _sbi_removethread(SBITHREAD* thread, sbi_runtime_t* rt)
     bool remove=false;
     for ( i=0; i< rt->thread_cnt; ++i ) {
         if (rt->_sbi_threads[i] == thread) {
-            free(thread->_interrupts);
             free(thread);
             remove=true;
             break;
@@ -540,6 +522,11 @@ unsigned int sbi_step(void *rt)
 		{
 			if (thread->status == RUNNING)
 			{
+                if (RT->_intinqueue) {
+                    _RETADDRS[thread->raddr_cnt++] = CUR_PCOUNT;
+	                CUR_PCOUNT = RT->_interrupts[RT->_intinqueue-1]; // Set the program counter to interrupt's address
+                    RT->_intinqueue=0;
+                }
 				ret = _sbi_step_internal(thread,rt);
 				if (ret)
 				{
@@ -563,8 +550,9 @@ unsigned int sbi_step(void *rt)
 		}
 		RT->_sbi_currentthreadn++;
 		if (RT->_sbi_currentthreadn > (RT->thread_cnt - 1)) RT->_sbi_currentthreadn = 0;
-		return ret; 
 	#endif
+
+	return ret; 
 }
 
 unsigned int sbi_running(void* rt)
@@ -577,11 +565,6 @@ unsigned int sbi_running(void* rt)
 				c++;
 	return c;
 }
-
-//SBITHREAD* _sbi_getthread(SBITHREADNUM n)
-//{
-//	return _sbi_threads[n];
-//}
 
 void _sbi_startthread(SBITHREAD* thread)
 {
@@ -604,33 +587,19 @@ SBITHREADERROR _sbi_getthreaderror(SBITHREAD* thread)
 }
 
 
-void interrupt(const unsigned int id, void* rt)
+void sbi_interrupt(const unsigned int id, void* rt)
 {
-	if (RT->_exec==1) // Some code in execution, queue interrupt
-	{
-		_intinqueue = id + 1;
-		return;
-	}
-    int i;	
-	for (i=RETURNADDRESSESN-2; i>0; i--) RT->_sbi_currentthread->_returnaddresses[i+1] = RT->_sbi_currentthread->_returnaddresses[i];
-	RT->_sbi_currentthread->_returnaddresses[1] = RT->_sbi_currentthread->_returnaddresses[0];
-	RT->_sbi_currentthread->_returnaddresses[0] = RT->_sbi_currentthread->p;
-	
-	RT->_sbi_currentthread->p = RT->_sbi_currentthread->_interrupts[id]; // Set the program counter to interrupt's address
-	
-	_intinqueue = 0; // Be sure to clean the queue
-	
-	return;
+    RT->_intinqueue = id+1;
 }
 
 void sbi_cleanup(void *rt) {
     int i;
     for (i=0;i<RT->thread_cnt;++i) {
       if (RT->_sbi_threads[i]) {
-        free( RT->_sbi_threads[i]->_interrupts);
         free ( RT->_sbi_threads[i] );
       } else break;
     }
+    free(RT->_interrupts);
     free(RT->_labels);
     free(rt);
 }

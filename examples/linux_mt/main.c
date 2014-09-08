@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <sbi.h>
+#include <stdbool.h>
 
 #include "funclib.h"
 
@@ -41,9 +42,15 @@ int main(int argc, char** argv)
      
 	printf("Running...\n");
 	
+    // TODO make this more cross platform or perhaps 
+    // a command line argument for interrupt timing.
+    bool interrupts = strcmp(argv[1],"programs/interrupts.sbi")==0;
+    int int_cnt=0;
 	while (sbi_running(rt)>0)
 	{
 		ret = sbi_step(rt);
+        if (interrupts && (++int_cnt % 100==0))
+            sbi_interrupt(2,rt);
 	}
     sbi_cleanup(rt);
 	

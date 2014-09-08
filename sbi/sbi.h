@@ -104,7 +104,7 @@
     unsigned int sbi_begin();
 	unsigned int sbi_running(void*);
 	unsigned int sbi_step();
-	void interrupt(const INTERRUPT id, void*);
+	void sbi_interrupt(const INTERRUPT id, void*);
     void sbi_cleanup(void*); // free resources after program run
 
     // accessor functions can be used

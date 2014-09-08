@@ -11,6 +11,13 @@
 #include <stdlib.h>
 #include <string.h> // memset
 #include <stdbool.h>
+
+#ifdef DEBUG
+ #include <stdio.h>
+ #define _ERR printf
+#else
+ #define _ERR(...)
+#endif
     
 // SBI  stuctures
 typedef enum
@@ -383,21 +390,23 @@ unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
             {
                 var1t = _getfch();
                 var1 = _getfch();
+                var2t = _getfch();
                 var2 = _getfch();
                 int ret = _sbi_new_thread_at(_LABELS[_getval(var1t,var1,thread)], rt);
                 byte tId = !ret ? rt->new_threadid : 0;
-                _setval( _varid, var2, tId, thread );
+                _setval( var2t, var2, tId, thread );
                 if (ret) _error(ret);
             }
             break;
         case _istr_wait:
             {
+                var1t = _getfch();
                 var1 = _getfch();
-                byte tId = _getval(_varid,var1,thread);
+                byte tId = _getval(var1t,var1,thread);
                 for (i=0;i<rt->thread_cnt;++i) {
                     if ( rt->_sbi_threads[i]->threadid == tId &&
                          rt->_sbi_threads[i]->status == RUNNING ) {
-                         CUR_PCOUNT-=2; // rerun wait
+                         CUR_PCOUNT-=3; // rerun wait
                          break;
                     }
                 }
@@ -410,6 +419,7 @@ unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 			if (_getfch()==FOOTER_1) return 1; else return 4;
 		default:
 			_error(0xB1);
+            _ERR("Instruction Error %02x at pcount: %d thread %d\n", rd, CUR_PCOUNT, thread->threadid );
 			return 3;
 			break;
 	}

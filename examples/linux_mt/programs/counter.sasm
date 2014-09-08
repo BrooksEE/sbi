@@ -8,10 +8,10 @@
 
 assign _t0 0 ; t0 = 0
 assign _t1 10 ; t1 = 10
-thread 1 _t9; Run the following loop in main and an additional thread
+thread 1 _r9; Run the following loop in main and an additional thread
             ; thread id is stored in _t9
             ; if thread creation fails _t9 will be 0 and context error function is called.
-debug _t9   ;
+debug _r9   ;
 
 label 0 ; Label for loop
 debug _t0 ; Write t0 to debug stream
@@ -19,7 +19,7 @@ incr _t0 ; Increments t0
 low _t0 10 _t2
 cmpjump _t2 1 0 0 ; If _t0 is lower than 10 jump to label 0 (loop)
 
-wait _t9; this will cause thread 1 to wait for thread 2 until it's done counting 
+wait _r9; this will cause thread 1 to wait for thread 2 until it's done counting 
 
 exit ; else exit
 ; alternate instead of wait 

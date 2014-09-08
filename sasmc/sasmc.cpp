@@ -437,10 +437,11 @@ int pline(string command, int argn, vector<string>& args)
 	}
     if (command.compare("thread")==0) {
 		if (argn!=2) { cerror(command, WRONGNUM); return 1; }
-        if (argt[1]!=_varid) { cerror(command, WRONGTYPE); return 1; }
+        if (!VARORREG(1)) { cerror(command, WRONGTYPE); return 1; }
         wb(_istr_thread);
         wb(argt[0]);
         wb(argv[0]);
+        wb(argt[1]);
         wb(argv[1]);
         return 0;
     }
@@ -448,6 +449,7 @@ int pline(string command, int argn, vector<string>& args)
         if (argn!=1) { cerror(command, WRONGNUM); return 1; }
         if (!VARORREG(0)) { cerror(command, WRONGTYPE); return 1; }
         wb(_istr_wait);
+        wb(argt[0]);
         wb(argv[0]);
         return 0;
     }

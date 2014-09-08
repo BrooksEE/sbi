@@ -200,7 +200,7 @@ int pline(string command, int argn, vector<string>& args)
 	if (command.compare("move")==0)
 	{
 		if (argn!=2) { cerror(command, WRONGNUM); return 1; }
-		if (!VARORREG(0)||!VARORREG(1)) { cerror(command, WRONGTYPE); return 1; }
+		if (!VARORREG(0)) { cerror(command, WRONGTYPE); return 1; }
 		wb(_istr_move);
         wb(argt[0]);
 		wb(argv[0]);

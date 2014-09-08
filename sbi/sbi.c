@@ -590,7 +590,8 @@ SBITHREADERROR _sbi_getthreaderror(SBITHREAD* thread)
 
 void sbi_interrupt(const unsigned int id, void* rt)
 {
-    RT->_intinqueue = id+1;
+	if (rt)
+		RT->_intinqueue = id+1;
 }
 
 void sbi_cleanup(void *rt) {

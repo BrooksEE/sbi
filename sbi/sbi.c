@@ -256,6 +256,8 @@ unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
         case _istr_cmp:
         case _istr_high:
         case _istr_low:
+        case _istr_lte:
+        case _istr_gte:
 			var1t = _getfch();
 			var1 = _getfch();
 			var2t = _getfch();
@@ -271,6 +273,8 @@ unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
                        rd == _istr_cmp ? (v1==v2?1:0) :
                        rd == _istr_high ? (v1>v2?1:0) :
                        rd == _istr_low ? (v1<v2?1:0) :
+                       rd == _istr_lte ? (v1<=v2?1:0) :
+                       rd == _istr_gte ? (v1>=v2?1:0) :
                        0;
             _setval( var3t, var3, 
                      val,

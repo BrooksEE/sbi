@@ -13,6 +13,9 @@
 	#define FOOTER_1						0xF0
 	
 	// Instructions
+    // TODO when adding instruction
+    // also add to instructions map in sasmc
+    // perhaps add automated way to do that.
 	#define _istr_assign						0x01
 	#define _istr_move						0x02
 	#define _istr_add						0x10
@@ -28,6 +31,8 @@
 	#define _istr_cmp						0x30
 	#define _istr_high						0x31
 	#define _istr_low						0x32
+    #define _istr_lte                       0x33
+    #define _istr_gte                       0x34
 	#define _istr_jump						0x41
 	#define _istr_cmpjump		 		0x42
 	#define	_istr_ret						0x43

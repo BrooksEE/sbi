@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <iostream>
 #include <fstream>
+#include <map>
 #include <sbi_inst.h>
 #include "tokenizer.h"
 
@@ -34,6 +35,8 @@ long progln=0;
 char* inname;
 char* outname;
 char* prgname;
+
+map<string,int> instructions;
 
 /*
 	Enumerations
@@ -208,50 +211,20 @@ int pline(string command, int argn, vector<string>& args)
 		wb(argv[1]);
 		return 0;
 	}
-	if (command.compare("add")==0)
-	{
+	if (command.compare("add")==0 ||
+        command.compare("sub")==0 ||
+	    command.compare("mul")==0 ||
+        command.compare("div")==0 ||
+        command.compare("cmp")==0 ||
+        command.compare("high")==0 ||
+        command.compare("low")==0 ||
+        command.compare("lte")==0 ||
+        command.compare("gte")==0
+       )
+    {
 		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
 		if (!VARORREG(2)) { cerror(command, WRONGTYPE); return 1; }
-		wb(_istr_add);
-		wb(argt[0]);
-		wb(argv[0]);
-		wb(argt[1]);
-		wb(argv[1]);
-        wb(argt[2]);
-		wb(argv[2]);
-		return 0;
-	}
-	if (command.compare("sub")==0)
-	{
-		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
-		if (!VARORREG(2)) { cerror(command, WRONGTYPE); return 1; }
-		wb(_istr_sub);
-		wb(argt[0]);
-		wb(argv[0]);
-		wb(argt[1]);
-		wb(argv[1]);
-        wb(argt[2]);
-		wb(argv[2]);
-		return 0;
-	}
-	if (command.compare("mul")==0)
-	{
-		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
-		if (!VARORREG(2)) { cerror(command, WRONGTYPE); return 1; }
-		wb(_istr_mul);
-		wb(argt[0]);
-		wb(argv[0]);
-		wb(argt[1]);
-		wb(argv[1]);
-        wb(argt[2]);
-		wb(argv[2]);
-		return 0;
-	}
-	if (command.compare("div")==0)
-	{
-		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
-		if (!VARORREG(2)) { cerror(command, WRONGTYPE); return 1; }
-		wb(_istr_div);
+		wb(instructions[command]);
 		wb(argt[0]);
 		wb(argv[0]);
 		wb(argt[1]);
@@ -314,45 +287,6 @@ int pline(string command, int argn, vector<string>& args)
 		wb(_istr_tob);
         wb(argt[1]);
 		wb(argv[0]);
-		return 0;
-	}
-	if (command.compare("cmp")==0)
-	{
-		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
-		if (!VARORREG(2)) { cerror(command, WRONGTYPE); return 1; }
-		wb(_istr_cmp);
-		wb(argt[0]);
-		wb(argv[0]);
-		wb(argt[1]);
-		wb(argv[1]);
-        wb(argt[2]);
-		wb(argv[2]);
-		return 0;
-	}
-	if (command.compare("high")==0)
-	{
-		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
-		if (!VARORREG(2)) { cerror(command, WRONGTYPE); return 1; }
-		wb(_istr_high);
-		wb(argt[0]);
-		wb(argv[0]);
-		wb(argt[1]);
-		wb(argv[1]);
-        wb(argt[2]);
-		wb(argv[2]);
-		return 0;
-	}
-	if (command.compare("low")==0)
-	{
-		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
-		if (!VARORREG(2)) { cerror(command, WRONGTYPE); return 1; }
-		wb(_istr_low);
-		wb(argt[0]);
-		wb(argv[0]);
-		wb(argt[1]);
-		wb(argv[1]);
-        wb(argt[2]);
-		wb(argv[2]);
 		return 0;
 	}
 	if (command.compare("label")==0)
@@ -487,6 +421,37 @@ int main (int argc, char** argv)
 		printf("-cl\t\t\tClean non-SBI files used during compilation\n");
 		return 1;
 	}
+
+    // todo maybe better way to do this
+    instructions["add"] = _istr_add;
+    instructions["assign"] = _istr_assign;
+   	instructions["move"] = _istr_move;
+	instructions["add"] = _istr_add;
+	instructions["sub"] = _istr_sub;
+	instructions["mul"] = _istr_mul;
+	instructions["div"] = _istr_div;
+    instructions["push"] = _istr_push;
+    instructions["pop"] = _istr_pop;
+	instructions["incr"] = _istr_incr;
+	instructions["decr"] = _istr_decr;
+	instructions["inv"] = _istr_inv;
+	instructions["tob"] = _istr_tob;
+	instructions["cmp"] = _istr_cmp;
+	instructions["high"] = _istr_high;
+	instructions["low"] = _istr_low;
+    instructions["lte"] = _istr_lte;
+    instructions["gte"] = _istr_gte;
+	instructions["jump"] = _istr_jump;
+	instructions["cmpjump"] = _istr_cmpjump;
+	instructions["ret"] = _istr_ret;
+	instructions["debug"] = _istr_debug;
+	instructions["error"] = _istr_error;
+	instructions["sint"] = _istr_sint;
+	instructions["int"] = _istr_int;
+    instructions["thread"] = _istr_thread;
+    instructions["wait "] = _istr_wait;
+	instructions["exit"] = _istr_exit;
+ 
 
 	for (byte i=0; i<255; i++) labels[i]=0;
 	

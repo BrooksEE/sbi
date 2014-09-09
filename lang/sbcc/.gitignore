@@ -1,0 +1,6 @@
+sbcc
+*.sasm
+*.sbi
+*.o
+*.tab.*
+lex.yy.c

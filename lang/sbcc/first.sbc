@@ -1,0 +1,35 @@
+
+var state=0;
+
+function _debug(val) {
+  val = val - 1;
+  debug(val);
+}
+
+function math(a, b, c) {
+   return c/(a+b);
+}
+
+thread thread1 {
+  wait (thread2);
+  var c=0;
+  while(c<10) {
+     c = c+ 1;
+  }
+  _debug (c);
+}
+
+thread thread2 {
+  # wait(thread1); # generates an error you can't wait for the first thread
+  var c=0;
+  while(c<=20) c = c+ 1;
+  debug(c);
+  while(c) {
+     c = c-1;
+     if (c<3) {
+        debug(c);
+     } else 
+        debug ( math ( 0xff, 1, c ) );
+  }
+}
+

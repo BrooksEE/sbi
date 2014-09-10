@@ -64,7 +64,8 @@ typedef struct
 	VARIABLE _t[VARIABLESNUM];
 	LABEL* _labels;
 	INTERRUPT* _interrupts;
-    INTERRUPT _intinqueue;
+    INTERRUPT _intinqueue[INTQUEUE_SIZE];
+    unsigned int int_cnt;
     #if _SBI_MULTITHREADING_EQUALTIME
     	SBITHREADNUM _sbi_currentthreadn;
     #endif
@@ -515,10 +516,10 @@ sbi_error_t sbi_step(void *rt)
 		{
 			if (thread->status == RUNNING)
 			{
-                if (RT->_intinqueue) {
+                if (RT->int_cnt>0) {
                     _RETADDRS[thread->raddr_cnt++] = CUR_PCOUNT;
-	                CUR_PCOUNT = RT->_interrupts[RT->_intinqueue-1]; // Set the program counter to interrupt's address
-                    RT->_intinqueue=0;
+                    INTERRUPT id = RT->_intinqueue[--RT->int_cnt];
+	                CUR_PCOUNT = RT->_interrupts[id]; // Set the program counter to interrupt's address
                 }
 				ret = _sbi_step_internal(thread,rt);
 				if (ret)
@@ -581,10 +582,17 @@ SBITHREADERROR _sbi_getthreaderror(SBITHREAD* thread)
 }
 
 
-void sbi_interrupt(const unsigned int id, void* rt)
+sbi_error_t sbi_interrupt(const unsigned int id, void* rt)
 {
-	if (rt)
-		RT->_intinqueue = id+1;
+	if (rt) {
+        if (RT->int_cnt < INTQUEUE_SIZE-1) {
+		    RT->_intinqueue[RT->int_cnt++] = id;
+        } else
+            return SBI_INT_LOST;
+    } else 
+        return SBI_INVALID_RT;
+
+    return SBI_NOERROR;
 }
 
 void sbi_cleanup(void *rt) {

@@ -51,6 +51,12 @@
     #ifndef _SBI_MULTITHREADING_EQUALTIME
   		#define _SBI_MULTITHREADING_EQUALTIME 1
     #endif
+
+    // number of interrupts to queue
+    // before they get lost if not handled.
+    #ifndef INTQUEUE_SIZE
+        #define INTQUEUE_SIZE               6
+    #endif
 	
 	// Define 'byte' variable type
 	typedef unsigned char byte;
@@ -89,7 +95,8 @@
       SBI_STACK_OVERFLOW, // push called when stack is full
       SBI_STACK_UNDERFLOW, // pop called when stack is empty
       SBI_INSTR_ERROR, // unrecognized instruction
-      SBI_THREAD_MAX // attempt to allocate more than max threads
+      SBI_THREAD_MAX, // attempt to allocate more than max threads
+      SBI_INT_LOST // more interrupts queued than INTQUEUE_SIZE
     } sbi_error_t;
 	
 
@@ -120,7 +127,7 @@
     sbi_error_t sbi_begin(void*);
 	sbi_error_t sbi_running(void*);
 	sbi_error_t sbi_step(void*);
-	void sbi_interrupt(const INTERRUPT id, void*);
+	sbi_error_t sbi_interrupt(const INTERRUPT id, void*);
     void sbi_cleanup(void*); // free resources after program run
 
     // accessor functions can be used

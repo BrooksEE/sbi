@@ -54,13 +54,11 @@ int main(int argc, char** argv)
 	
 	printf("All threads terminated\n");
 	
-	if (ret==1) printf("Program reached end (no exit found)\n");
-	if (ret==2) printf("Program exited (no errors)\n");
-	if (ret==3) printf("Program exited (wrong instruction code)\n");
-	if (ret==4) printf("Program exited (can't understand byte)\n");
-	if (ret==5) printf("Program exited (user error)\n");
+	if (ret==SBI_THREAD_EXIT) printf("Program reached end (no exit found)\n");
+	else if (ret==SBI_PROG_EXIT) printf("Program exited (no errors)\n");
+	else printf("Program exited (%d) see sbi.h\n", ret);
 	
 	fclose(f1);
 	
-	return (ret<2) ? 0 : 1;
+	return (ret<=SBI_PROG_EXIT) ? 0 : 1;
 }

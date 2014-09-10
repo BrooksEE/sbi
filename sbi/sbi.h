@@ -75,6 +75,22 @@
 	
 	// Define 'program variable' variable type
 	typedef unsigned char VARIABLE;
+
+    typedef enum {
+      SBI_NOERROR,
+      SBI_THREAD_EXIT, // normal thread exit
+      SBI_PROG_EXIT,  // normal exit via exit command
+      SBI_INVALID_RT, // void* for context is null 
+      SBI_ALLOC_ERROR, // unable to allocate memory
+      SBI_CTX_ERROR,   // uninitialized function in context
+      SBI_HEADER_ERROR, // invalid program header
+      SBI_HEADER_OLD,  // old program format
+      SBI_PROG_ERROR,  // program runtime error
+      SBI_STACK_OVERFLOW, // push called when stack is full
+      SBI_STACK_UNDERFLOW, // pop called when stack is empty
+      SBI_INSTR_ERROR, // unrecognized instruction
+      SBI_THREAD_MAX // attempt to allocate more than max threads
+    } sbi_error_t;
 	
 
 	// User functions
@@ -101,7 +117,7 @@
 	
     // public api 
 	void* sbi_init(sbi_context_t*);
-    unsigned int sbi_begin();
+    sbi_error_t sbi_begin();
 	unsigned int sbi_running(void*);
 	unsigned int sbi_step();
 	void sbi_interrupt(const INTERRUPT id, void*);

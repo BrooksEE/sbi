@@ -75,9 +75,9 @@ typedef struct
 
 
 // multi threading internal functions
-unsigned int _sbi_new_thread_at(PCOUNT, sbi_runtime_t*);
+sbi_error_t _sbi_new_thread_at(PCOUNT, sbi_runtime_t*);
 SBITHREAD* _sbi_createthread(PCOUNT, sbi_runtime_t*);
-unsigned int _sbi_loadthread(SBITHREAD* thread, sbi_runtime_t*);
+sbi_error_t _sbi_loadthread(SBITHREAD* thread, sbi_runtime_t*);
 void _sbi_removethread(SBITHREAD* thread, sbi_runtime_t*);
 SBITHREAD* _sbi_getthread(SBITHREADNUM n);
 void _sbi_startthread(SBITHREAD* thread);
@@ -152,31 +152,30 @@ void* sbi_init(sbi_context_t * ctx)
 
 /*
  * Starts the main thread
- * TODO update to return error codes from global struct
  */
-unsigned int sbi_begin(void *rt) {
+sbi_error_t sbi_begin(void *rt) {
 
-    if (!rt) return 1;
+    if (!rt) return SBI_INVALID_RT;
 
     // create the main thread
 	
 	SBITHREAD* thread = _sbi_createthread(0, rt);
-    if (!thread) return 1;
+    if (!thread) return SBI_ALLOC_ERROR;
 	
-    if (!RT->ctx->getfch) return 1;
+    if (!RT->ctx->getfch) return SBI_CTX_ERROR;
  
 	// Read head
-	if (_getfch()!=HEADER_0) return 3;
+	if (_getfch()!=HEADER_0) return SBI_HEADER_ERROR;
 	byte rd = _getfch();
 	if (rd!=HEADER_1) {
 		if ((rd==0x1B)||(rd==0x2B)||(rd==0x3B))
-			return 2;
+			return SBI_HEADER_OLD;
 		else
-			return 3;
+			return SBI_HEADER_ERROR;
 	}
 	
 	// Getting labels
-	if (_getfch()!=LABELSECTION) return 3;
+	if (_getfch()!=LABELSECTION) return SBI_HEADER_ERROR;
 	unsigned int ln = _getfch();
 	RT->_labels = malloc(ln * sizeof(LABEL));
 	unsigned int c = 0;
@@ -185,10 +184,10 @@ unsigned int sbi_begin(void *rt) {
 			RT->_labels[c] = _getfch() | (_getfch() << 8);
 			c++;
 	}
-	if (_getfch()!=SEPARATOR) return 3;
+	if (_getfch()!=SEPARATOR) return SBI_HEADER_ERROR;
 	
 	// Getting interrupts addresses
-	if (_getfch()!=INTERRUPTSECTION) return 3;
+	if (_getfch()!=INTERRUPTSECTION) return SBI_HEADER_ERROR;
 	ln = _getfch();
 	RT->_interrupts = malloc(ln * sizeof(INTERRUPT));
 	c = 0;
@@ -197,7 +196,7 @@ unsigned int sbi_begin(void *rt) {
 			RT->_interrupts[c] = _getfch() | (_getfch() << 8);
 			c++;
 	}
-	if (_getfch()!=SEPARATOR) return 3;
+	if (_getfch()!=SEPARATOR) return SBI_HEADER_ERROR;
 
 	int ret = _sbi_loadthread(thread, RT);
     if (!ret) _sbi_startthread(thread);
@@ -205,7 +204,7 @@ unsigned int sbi_begin(void *rt) {
 
 }
 
-unsigned int _sbi_new_thread_at(PCOUNT p, sbi_runtime_t* rt) {
+sbi_error_t _sbi_new_thread_at(PCOUNT p, sbi_runtime_t* rt) {
     SBITHREAD *t = _sbi_createthread(p, rt);
     int ret = _sbi_loadthread(t, rt);
     if (!ret) _sbi_startthread(t);
@@ -215,20 +214,15 @@ unsigned int _sbi_new_thread_at(PCOUNT p, sbi_runtime_t* rt) {
 /*
 	Steps the program of one instruction
 
-	Returns:
-		0: 	No errors
-		1: 	Reached end (no exit found)
-		2: 	Program exited
-		3: 	Wrong instruction code
-		4: 	Can't understand byte
-		5: 	User error
+	Returns: sbi_error_t
 */
-unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
+sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 {
 
     byte rd, var1, var2, var1t, var2t, var3, var3t;
     int i;
 
+    // TODO I don't think _exec is needed any longer.
 	RT->_exec = 1;
 	
 	rd = _getfch();
@@ -282,8 +276,8 @@ unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 			break;
         case _istr_push:
             if (thread->stackp>=STACK_SIZE-1) {
-                _error(0xb4); // TODO error codes (overflow)
-                return 3;
+                _error(SBI_STACK_OVERFLOW); // TODO error codes (overflow)
+                return SBI_PROG_ERROR;
             }
             var1t=_getfch();
             var1 = _getfch();
@@ -292,8 +286,8 @@ unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
         case _istr_pop:
             {
                 if (thread->stackp==0) {
-                    _error(0xb5); // underflow
-                    return 3;
+                    _error(SBI_STACK_UNDERFLOW); // underflow
+                    return SBI_PROG_ERROR;
                 }
                 byte n = _getfch();
                 --thread->stackp;
@@ -352,7 +346,7 @@ unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 			    CUR_PCOUNT = _RETADDRS[--thread->raddr_cnt];
             } else {
                 // thread exit
-                return 1;
+                return SBI_THREAD_EXIT;
             }
 			break;
 		case _istr_debug:
@@ -385,6 +379,7 @@ unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
                 byte tId = !ret ? rt->new_threadid : 0;
                 _setval( var2t, var2, tId, thread );
                 if (ret) _error(ret);
+                return ret;
             }
             break;
         case _istr_wait:
@@ -402,21 +397,21 @@ unsigned int _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
             }
             break;
 		case _istr_exit:
-			return 2;
+			return SBI_PROG_EXIT;
 			break;
 		case FOOTER_0:
 			if (_getfch()==FOOTER_1) return 1; else return 4;
 		default:
-			_error(0xB1);
+			_error(SBI_INSTR_ERROR);
             _ERR("Instruction error 0x%02x at pcount: 0x%02x thread %d\n", rd, CUR_PCOUNT-1, thread->threadid );
-			return 3;
+			return SBI_PROG_ERROR;
 			break;
 	}
 	
 	RT->_exec = 0;
 	
 	
-	return 0;
+	return SBI_NOERROR;
 }
 
 
@@ -446,20 +441,14 @@ SBITHREAD* _sbi_createthread(PCOUNT p, sbi_runtime_t *rt)
 	Initializes the thread by reading the SBI stream header
 	(load labels, interrupt addresses, etc...) and puts it into the threads list
 	
-	Returns:
-        TODO update errors
-		0: 	No errors
-		1: 	No function pointer for _getfch
-		2:	Old version of executable format
-		3:	Invalid program file
-		4:	Can't load thread (threads number overflow)
+	Returns: sbi_error_t
 */
-unsigned int _sbi_loadthread(SBITHREAD* thread, sbi_runtime_t* rt)
+sbi_error_t _sbi_loadthread(SBITHREAD* thread, sbi_runtime_t* rt)
 {
 	
 	// Load thread into threads list
     if (rt->thread_cnt > THREADMAXNUM-1) {
-       return 4;
+       return SBI_THREAD_MAX;
     }
     rt->_sbi_threads[rt->thread_cnt++] = thread;
     do {
@@ -467,7 +456,7 @@ unsigned int _sbi_loadthread(SBITHREAD* thread, sbi_runtime_t* rt)
     } while (!thread->threadid); // ids wrap but skip 0
 	
 	// Done
-	return 0;
+	return SBI_NOERROR;
 }
 
 void _sbi_removethread(SBITHREAD* thread, sbi_runtime_t* rt)
@@ -537,7 +526,7 @@ unsigned int sbi_step(void *rt)
                     _TRACE ( "Thread (%d) exit: %d\n", thread->threadid, ret );
                     _sbi_removethread(thread,RT);
                     thread=NULL;
-                    if (ret == 2) {
+                    if (ret == SBI_PROG_EXIT) {
                        // program exit
                        int i;
                        for ( i=0;i<RT->thread_cnt;++i ) _sbi_stopthread(RT->_sbi_threads[i]); 

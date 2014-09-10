@@ -13,11 +13,11 @@ int line_num = 1;
 %option noyywrap
 %x COMMENT
 %%
-#              { BEGIN(COMMENT); }
+\/\/           { BEGIN(COMMENT); }
 <COMMENT>\n    { ++line_num; BEGIN(INITIAL); }
 <COMMENT>.     ;
 [ \t]          ;
-var            { return VAR; }
+int            { return VAR; }
 thread         { return THREAD; }
 function       { return FUNCTION; }
 while          { return WHILE; }

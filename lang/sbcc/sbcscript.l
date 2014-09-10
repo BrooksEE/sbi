@@ -18,8 +18,8 @@ int line_num = 1;
 <COMMENT>.     ;
 [ \t]          ;
 int            { return VAR; }
+void           { return VOID; }
 thread         { return THREAD; }
-function       { return FUNCTION; }
 while          { return WHILE; }
 if             { return IF; }
 else           { return ELSE; }

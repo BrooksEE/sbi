@@ -29,25 +29,24 @@ void yyerror(const char *s);
     FunctionArgList *funcargs;
     FunctionCallArgList *funccallargs;
     Stmts *stmts;
-    ThreadList* threads;
 }
 
 %token FUNCTION THREAD VAR DEBUG ERROR WAIT
-%token WHILE IF ELSE RETURN
+%token WHILE IF ELSE RETURN VOID
 %token EQOP NEOP GE LE
 
 %token <ival> INT
 %token <sval> STRING
 
 
-%type<node> sbcscript stmt code_block function_decl thread assign expr term return deberr
-%type<node> gvar_decl var_decl function_call while if ifblock elseblock wait
+%type<node> sbcscript stmt code_block function_decl assign expr term return deberr
+%type<node> gvar_decl var_decl function_call while if ifblock elseblock wait thread_stmt thread_expr
 %type<globals> globals
 %type<functions> function_list
 %type<funcargs> function_decl_args 
 %type<funccallargs> function_call_args
-%type<threads> thread_list
 %type<stmts> stmts
+%type<ival> rettype
 %type<sval> lval
 
 %left '<' '>' LE GE EQOP NEOP
@@ -56,7 +55,7 @@ void yyerror(const char *s);
 
 %%
 sbcscript:
-    globals function_list thread_list { gProgram = new Program ( $1, $2, $3 ); }
+    globals function_list { gProgram = new Program ( $1, $2 ); }
     ;
 globals:
     /* empty */ { $$=new Globals(); }
@@ -76,25 +75,21 @@ function_list:
     ;
 
 function_decl:
-    FUNCTION STRING '(' function_decl_args ')' code_block { $$=new Function($2, $4, (Block*)$6); free($2); }
+    rettype STRING '(' function_decl_args ')' code_block { $$=new Function($1, $2, $4, (Block*)$6); free($2); }
 
 function_decl_args:
     /* none */ { $$ = new FunctionArgList(); }
-    | STRING { $$ = new FunctionArgList(); $$->push_back($1); free($1); }
-    | function_decl_args ',' STRING {$$->push_back($3); free($3); }
+    | VAR STRING { $$ = new FunctionArgList(); $$->push_back($2); free($2); }
+    | function_decl_args ',' VAR STRING {$$->push_back($4); free($4); }
+    ;
+
+rettype:
+    VAR { $$ = 1; }
+    | VOID { $$ = 0; }
     ;
 
 code_block:
     '{' stmts '}' { $$=new Block( $2 ); }
-
-thread_list:
-    thread { $$ = new ThreadList(); $$->push_back((Thread*)$1); }
-    | thread_list thread { $1->push_back((Thread*)$2); }
-    ;
-
-thread:
-    THREAD STRING code_block { $$ = new Thread($2, (Block*)$3); free($2); }
-    ;
 
 stmts: 
     /* none */ { $$= new Stmts(); }
@@ -111,6 +106,7 @@ stmt:
     | return { $$ = $1; }
     | deberr { $$ = $1; }
     | wait { $$ = $1; }
+    | thread_stmt { $$ = $1; }
     ;
 
 var_decl:
@@ -144,6 +140,14 @@ elseblock:
 return:
     RETURN ';' { $$ = new ReturnStmt(NULL); }
     | RETURN expr ';' { $$ = new ReturnStmt((Expr*)$2); }
+
+thread_stmt:
+    THREAD '(' STRING ')' ';' { $$ = new ThreadStmt($3); free($3); }
+    ;
+
+thread_expr:
+    THREAD '(' STRING ')' { $$ = new ThreadExpr($3); free($3); }
+    ;
 
 wait:
     WAIT '(' STRING ')' ';' { $$ = new WaitStmt($3); free($3) }
@@ -183,6 +187,7 @@ term:
     INT { $$ = new IntExpr($1); }
     | STRING { $$ = new VarExpr($1); free($1); }
     | function_call { $$ = $1; }
+    | thread_expr { $$ = $1; }
     ;
 
 lval:

@@ -1,17 +1,20 @@
 
+// a global variable.
 int state=0;
 
-function _debug(val) {
+void _debug(int val) {
   val = val - 1;
   debug(val);
 }
 
-function math(a, b, c) {
+int math(int a, int b, int c) {
    return c/(a+b);
 }
 
-thread thread1 {
-  wait (thread2);
+// main
+void main() {
+  int tId = thread(thread2);
+  wait (tId);
   int c=0;
   while(c<10) {
      c = c+ 1;
@@ -19,8 +22,8 @@ thread thread1 {
   _debug (c);
 }
 
-thread thread2 {
-  // wait(thread1); // generates an error you can't wait for the first thread
+// another counter thread
+void thread2 () {
   int c=0;
   while(c<=20) c = c+ 1;
   debug(c);
@@ -32,4 +35,5 @@ thread thread2 {
         debug ( math ( 0xff, 1, c ) );
   }
 }
+
 

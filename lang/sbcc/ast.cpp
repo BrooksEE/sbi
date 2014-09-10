@@ -10,8 +10,7 @@
 using namespace std;
 
 
-#define RESERVED_GLOBALS 2 // for ms, FRAME_COUNT
-#define GLOBALS_MAX (64-RESERVED_GLOBALS) // 64 from sbi defs
+#define GLOBALS_MAX 64 // 64 from sbi defs
 
 typedef map<string,string> VarCtx;
 typedef vector<VarCtx*> VarScope;
@@ -52,7 +51,7 @@ class CtxImpl {
     }
     VarCtx* CurVarCtx() { return varScope.back(); } 
     
-    void AddVar(string &var) {
+    void AddVar(const string &var) {
        VarCtx* ctx = CurVarCtx();
        // if has already error
        if (ctx->count(var)>0) {
@@ -79,7 +78,7 @@ class CtxImpl {
        
     }
 
-    string FindVarLoc(string &var) {
+    string FindVarLoc(const string &var) {
        VarScope::reverse_iterator itr;
        for (itr=varScope.rbegin();
             itr<varScope.rend();
@@ -96,14 +95,14 @@ class CtxImpl {
 
 
     // labels
-    void AddNameLabel(string &name) {
+    void AddNameLabel(const string &name) {
         if ( labels.count(name)>0) {
             error ( "Label already exists." );
         }
         int nextl = labels.size();
         labels[name] = nextl; 
     }
-    int GetNameLabel(string &name) {
+    int GetNameLabel(const string &name) {
         if ( labels.count(name)==0 ) error ( "Label not found." );
         return labels[name];
     }
@@ -162,14 +161,8 @@ Program::~Program() {
        ++itr) {
        delete *itr;
   }
-  for (ThreadList::iterator itr = m_threads->begin();
-       itr < m_threads->end();
-       ++itr) {
-       delete *itr;
-  }
 
   delete m_globals;
-  delete m_threads;
   delete m_functions;
   
 }
@@ -188,52 +181,16 @@ void Program::genCode(CodeCtx &ctx) {
        ++itr) {
        CTX->AddNameLabel((*itr)->m_name);
   }
-  for (ThreadList::iterator itr = m_threads->begin();
-       itr < m_threads->end();
-       ++itr ) {
-       CTX->AddNameLabel((*itr)->m_name);
-  }
-
+  
   // generate a main
-  ThreadList::iterator itr = m_threads->begin();
-  ++itr; // skip first
-  int l;
-  char tId[255];
-  while (itr != m_threads->end()) {
-     // all threads but first have a variable for the threadId
-     // start it with the label so that it won't conflict with
-     // user variables
-     l = CTX->GetNameLabel((*itr)->m_name);
-     snprintf ( tId, 255, "%d%s", l, (*itr)->m_name.c_str() );
-     string tmp(tId);
-     CTX->AddVar(tmp);
-     string loc = CTX->FindVarLoc(tmp);
-     emit ( ctx, "thread %d %s\t\t\t; Start thread %s\n", l, loc.c_str(), (*itr)->m_name.c_str() );
-     ++itr;
-  }
-  // jump to thread 1
-  itr = m_threads->begin();
-  l=CTX->GetNameLabel((*itr)->m_name);
-  emit ( ctx, "jump %d 1\t\t\t; Jump to thread 1 (%s)\n", l, (*itr)->m_name.c_str() );
-  ++itr;
-  while (itr != m_threads->end()) {
-    int l=CTX->GetNameLabel( (*itr)->m_name );
-    snprintf ( tId, 255, "%d%s", l, (*itr)->m_name.c_str() );
-    string tmp(tId);
-    string loc = CTX->FindVarLoc(tmp);
-    emit ( ctx, "wait %s\t\t\t; wait for thread %s to finish\n", loc.c_str(), (*itr)->m_name.c_str() );
-    ++itr;
-  }
-  emit ( ctx, "exit\t\t\t; program finish\n" );
+
+  int m = CTX->GetNameLabel("main");
+  emit ( ctx, "jump %d 1\t\t\t; jump to main\n", m );
+  emit ( ctx, "exit\n" );
+
 
   for (FunctionList::iterator itr = m_functions->begin();
        itr < m_functions->end();
-       ++itr ) {
-       (*itr)->genCode(ctx);
-  }
-
-  for (ThreadList::iterator itr = m_threads->begin();
-       itr < m_threads->end();
        ++itr ) {
        (*itr)->genCode(ctx);
   }
@@ -312,14 +269,6 @@ void Function::genCode(CodeCtx &ctx) {
   }
 }
 
-void Thread::genCode(CodeCtx &ctx) {
- DEBUG ( cout << "thread " << m_name);
- int l=CTX->GetNameLabel(m_name);
- emit ( ctx, "label %d\t\t\t; thread %s\n", l, m_name.c_str() );
- m_block->genCode(ctx);
- emit ( ctx, "ret\t\t\t; end thread %s\n", m_name.c_str() );
-}
-
 // statements
 void AssignStmt::genCode(CodeCtx &ctx) {
  DEBUG ( cout << m_lval << '=' << *m_val << endl );
@@ -378,7 +327,7 @@ void ReturnStmt::genCode(CodeCtx &ctx) {
     m_expr->evalTo(ctx,"_r0");
     emit (ctx, "push _r0\t\t\t; return value\n" );
  } else
-    emit(ctx,"push 0\t\t\t; empty return\n" );
+    emit (ctx, "push 0\t\t\t; empty return\n" );
  emit(ctx,"ret\t\t\t;\n" );
 }
 
@@ -388,13 +337,15 @@ void DebugStmt::genCode(CodeCtx &ctx) {
   emit ( ctx, "%s _r0\n", m_call.c_str() );
 }
 
+void ThreadStmt::genCode(CodeCtx &ctx) {
+  DEBUG ( cout << "thread (" << m_name << " ) " );
+  int l=CTX->GetNameLabel(m_name);
+  emit ( ctx, "thread %d\t\t\t; start thread %s\n", m_name.c_str() );
+}
+
 void WaitStmt::genCode(CodeCtx &ctx) {
   DEBUG ( cout << "wait ( " << m_wait << " ) " );
-  char tmp[255];
-  int l=CTX->GetNameLabel(m_wait);
-  snprintf(tmp,255,"%d%s", l, m_wait.c_str() );
-  string tId(tmp);
-  string loc = CTX->FindVarLoc(tId);
+  string loc = CTX->FindVarLoc(m_wait);
   emit (ctx, "wait %s\t\t\t; wait %s\n", loc.c_str(), m_wait.c_str() );
 }
 
@@ -522,6 +473,10 @@ FuncExpr::~FuncExpr() {
 }
 
 void FuncExpr::evalTo(CodeCtx &ctx, string &target) {
+   // TODO check actual function
+   // and ensure it returns a value
+   // (error if function is void)
+ 
    // push args in reverse order
    for (FunctionCallArgList::reverse_iterator itr = m_args->rbegin();
         itr < m_args->rend();
@@ -532,6 +487,11 @@ void FuncExpr::evalTo(CodeCtx &ctx, string &target) {
    int funcLabel = CTX->GetNameLabel(m_name);
    emit ( ctx, "jump %d 1\t\t\t; call %s\n", funcLabel, m_name.c_str() );
    emit ( ctx, "pop %s\t\t\t; func result\n", target.c_str() );
+}
+
+void ThreadExpr::evalTo(CodeCtx &ctx, string &target) {
+   int l=CTX->GetNameLabel(m_name);
+   emit ( ctx, "thread %d %s\t\t\t; start thread %s\n", l, target.c_str(), m_name.c_str() );
 }
 
 

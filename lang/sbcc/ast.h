@@ -11,7 +11,6 @@
 class Node;
 class VarDec;
 class Function;
-class Thread;
 class Expr;
 
 
@@ -33,7 +32,6 @@ typedef std::vector<Node*> Stmts;
 typedef std::vector<Function*> FunctionList;
 typedef std::vector<std::string> FunctionArgList;
 typedef std::vector<Expr*> FunctionCallArgList;
-typedef std::vector<Thread*> ThreadList;
 
 class CodeCtx {
   public:
@@ -65,11 +63,9 @@ class Program : public Node {
   public:
   Globals *m_globals;
   FunctionList *m_functions;
-  ThreadList *m_threads;
-  Program( Globals *g, FunctionList *f, ThreadList *t ) : 
+  Program( Globals *g, FunctionList *f ) : 
     m_globals(g), 
-    m_functions(f),
-    m_threads(t) {}
+    m_functions(f) {}
   ~Program();
 
   void genCode(CodeCtx &);
@@ -93,7 +89,6 @@ class Block : public Node {
   public:
   Stmts *m_stmts;
   Block ( Stmts *stmts ) : m_stmts ( stmts ) {}
-  //Block ( Block *b ) : m_stmts(b.m_stmts) { b.m_stmts.clear(); }
   Block () : m_stmts ( new Stmts() ) {}
   ~Block();
 
@@ -102,26 +97,17 @@ class Block : public Node {
 
 class Function : public Node {
   public:
+  int m_rettype;
   std::string m_name;
   FunctionArgList *m_args;
   Block *m_block;
-  Function ( char* name, FunctionArgList * args, Block* block ) : 
+  Function ( int rettype, char* name, FunctionArgList * args, Block* block ) : 
+    m_rettype(rettype),
     m_name(name), 
     m_args(args),
     m_block(block) {}
   ~Function() { delete m_args; delete m_block; }
 
-  void genCode(CodeCtx &);
-};
-
-class Thread : public Node {
-  public:
-  std::string m_name;
-  Block *m_block;
-  Thread ( char *name, Block *block ) :
-    m_name(name),
-    m_block(block) {}
-  ~Thread() { delete m_block; } 
   void genCode(CodeCtx &);
 };
 
@@ -195,6 +181,13 @@ class DebugStmt : public Node {
   void genCode(CodeCtx &);
 };
 
+class ThreadStmt : public Node {
+  public:
+  std::string m_name;
+  ThreadStmt(const char* name) : m_name(name) {}
+  void genCode(CodeCtx &ctx);
+};
+
 class WaitStmt : public Node {
   public:
   std::string m_wait;
@@ -258,5 +251,14 @@ class FuncExpr : public Expr {
   void stream ( std::ostream &o) const ;
   void evalTo(CodeCtx &, std::string &);
 };
+
+class ThreadExpr : public Expr {
+  public:
+  std::string m_name;
+  ThreadExpr(const char* name) : m_name(name) {}
+  void stream ( std::ostream &o) const { o << "thread (" << m_name << ")"; }
+  void evalTo(CodeCtx &, std::string &);
+};
+
 #endif
 

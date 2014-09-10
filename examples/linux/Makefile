@@ -13,8 +13,8 @@ SASMC=../../sasmc/sasmc
 
 all: sbi $(sbis) 
 
-sbi: $(OBJS)
-	gcc -o $@ $^
+sbi: $(OBJS) funclib.h
+	gcc -o $@ $(OBJS) 
 
 $(SASMC): $(wildcard ../../sasmc/*.cpp) $(wildcard ../../sasmc/*.h) 
 	make -C ../../sasmc

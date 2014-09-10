@@ -27,7 +27,7 @@
 	
 	void myfunc(byte b[16], void* rt)
 	{
-		printf("Custom user function, parameters: %i, %i, %i, %i, %i, %i, %i, %i\n", _getval(b[0], b[1], rt), _getval(b[2], b[3], rt), _getval(b[4], b[5], rt), _getval(b[6], b[7], rt), _getval(b[8], b[9], rt), _getval(b[10], b[11], rt), _getval(b[12], b[13], rt), _getval(b[14], b[15], rt));
+		printf("Custom user function, parameters: %i, %i, %i, %i, %i, %i, %i, %i\n", getval(b[0], b[1], rt), getval(b[2], b[3], rt), getval(b[4], b[5], rt), getval(b[6], b[7], rt), getval(b[8], b[9], rt), getval(b[10], b[11], rt), getval(b[12], b[13], rt), getval(b[14], b[15], rt));
 	}
 
     void msgbox(byte b[16], void* rt) {
@@ -39,7 +39,7 @@
 		int n;
 		printf("Enter a number: ");
 		scanf("%i", &n);
-		_setval(b[0], b[1], (byte)n, rt);
+		setval(b[0], b[1], (byte)n, rt);
 	}
 	
 #endif

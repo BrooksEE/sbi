@@ -152,50 +152,54 @@ CodeCtx::~CodeCtx() {
 }
 
 Program::~Program() {
-  for (Globals::iterator itr = m_globals.begin();
-       itr < m_globals.end();
+  for (Globals::iterator itr = m_globals->begin();
+       itr < m_globals->end();
        ++itr) {
        delete *itr;
   }
-  for (FunctionList::iterator itr = m_functions.begin();
-       itr < m_functions.end();
+  for (FunctionList::iterator itr = m_functions->begin();
+       itr < m_functions->end();
        ++itr) {
        delete *itr;
   }
-  for (ThreadList::iterator itr = m_threads.begin();
-       itr < m_threads.end();
+  for (ThreadList::iterator itr = m_threads->begin();
+       itr < m_threads->end();
        ++itr) {
        delete *itr;
   }
+
+  delete m_globals;
+  delete m_threads;
+  delete m_functions;
   
 }
 
 void Program::genCode(CodeCtx &ctx) {
   DEBUG(cout << "Generate a program." << endl);
   
-  for (Globals::iterator itr = m_globals.begin();
-       itr < m_globals.end();
+  for (Globals::iterator itr = m_globals->begin();
+       itr < m_globals->end();
        ++itr) {
        (*itr)->genCode(ctx);
   }
   // pre compute label names
-  for (FunctionList::iterator itr = m_functions.begin();
-       itr < m_functions.end();
+  for (FunctionList::iterator itr = m_functions->begin();
+       itr < m_functions->end();
        ++itr) {
        CTX->AddNameLabel((*itr)->m_name);
   }
-  for (ThreadList::iterator itr = m_threads.begin();
-       itr < m_threads.end();
+  for (ThreadList::iterator itr = m_threads->begin();
+       itr < m_threads->end();
        ++itr ) {
        CTX->AddNameLabel((*itr)->m_name);
   }
 
   // generate a main
-  ThreadList::iterator itr = m_threads.begin();
+  ThreadList::iterator itr = m_threads->begin();
   ++itr; // skip first
   int l;
   char tId[255];
-  while (itr != m_threads.end()) {
+  while (itr != m_threads->end()) {
      // all threads but first have a variable for the threadId
      // start it with the label so that it won't conflict with
      // user variables
@@ -208,11 +212,11 @@ void Program::genCode(CodeCtx &ctx) {
      ++itr;
   }
   // jump to thread 1
-  itr = m_threads.begin();
+  itr = m_threads->begin();
   l=CTX->GetNameLabel((*itr)->m_name);
   emit ( ctx, "jump %d 1\t\t\t; Jump to thread 1 (%s)\n", l, (*itr)->m_name.c_str() );
   ++itr;
-  while (itr != m_threads.end()) {
+  while (itr != m_threads->end()) {
     int l=CTX->GetNameLabel( (*itr)->m_name );
     snprintf ( tId, 255, "%d%s", l, (*itr)->m_name.c_str() );
     string tmp(tId);
@@ -222,14 +226,14 @@ void Program::genCode(CodeCtx &ctx) {
   }
   emit ( ctx, "exit\t\t\t; program finish\n" );
 
-  for (FunctionList::iterator itr = m_functions.begin();
-       itr < m_functions.end();
+  for (FunctionList::iterator itr = m_functions->begin();
+       itr < m_functions->end();
        ++itr ) {
        (*itr)->genCode(ctx);
   }
 
-  for (ThreadList::iterator itr = m_threads.begin();
-       itr < m_threads.end();
+  for (ThreadList::iterator itr = m_threads->begin();
+       itr < m_threads->end();
        ++itr ) {
        (*itr)->genCode(ctx);
   }
@@ -253,8 +257,8 @@ void VarDec::genCode(CodeCtx &ctx) {
 void Block::genCode(CodeCtx &ctx) {
   DEBUG ( cout << "{" );
   CTX->PushVarCtx();
-  for (Stmts::iterator itr = m_stmts.begin();
-       itr < m_stmts.end();
+  for (Stmts::iterator itr = m_stmts->begin();
+       itr < m_stmts->end();
        ++itr) {
        (*itr)->genCode(ctx);
   }
@@ -263,17 +267,18 @@ void Block::genCode(CodeCtx &ctx) {
 }
 
 Block::~Block() {
-  for (Stmts::iterator itr = m_stmts.begin();
-       itr < m_stmts.end();
+  for (Stmts::iterator itr = m_stmts->begin();
+       itr < m_stmts->end();
        ++itr ) delete *itr;
+  delete m_stmts;
 }
 
 
 void Function::genCode(CodeCtx &ctx) {
   DEBUG ( cout << "function " << m_name << '(' );
   DEBUG ( 
-     for ( FunctionArgList::iterator itr = m_args.begin();
-           itr < m_args.end();
+     for ( FunctionArgList::iterator itr = m_args->begin();
+           itr < m_args->end();
            ++itr ) cout << *itr << ',';
      cout << ')' );
 
@@ -281,23 +286,23 @@ void Function::genCode(CodeCtx &ctx) {
   emit ( ctx, "label %d\t\t\t; function %s\n", funcStart, m_name.c_str() );
   CTX->PushVarCtx(); 
 
-  for (FunctionArgList::iterator itr = m_args.begin();
-       itr < m_args.end();
+  for (FunctionArgList::iterator itr = m_args->begin();
+       itr < m_args->end();
        ++itr) {
        CTX->AddVar(*itr);
   }
-  for (FunctionArgList::reverse_iterator itr = m_args.rbegin();
-       itr < m_args.rend();
+  for (FunctionArgList::reverse_iterator itr = m_args->rbegin();
+       itr < m_args->rend();
        ++itr) {
        string loc = CTX->FindVarLoc(*itr);
        emit ( ctx, "pop %s\t\t\t; arg %s\n", loc.c_str(), itr->c_str() ); 
   }
-  m_block.genCode(ctx);
+  m_block->genCode(ctx);
   CTX->PopVarCtx();
   // is last statement a return
   bool pushval=true;
-  if (m_block.m_stmts.size()) {
-     Node* last = m_block.m_stmts.back(); 
+  if (m_block->m_stmts->size()) {
+     Node* last = m_block->m_stmts->back(); 
      if (typeid(*last) == typeid(ReturnStmt))
         pushval=false;
   }
@@ -311,7 +316,7 @@ void Thread::genCode(CodeCtx &ctx) {
  DEBUG ( cout << "thread " << m_name);
  int l=CTX->GetNameLabel(m_name);
  emit ( ctx, "label %d\t\t\t; thread %s\n", l, m_name.c_str() );
- m_block.genCode(ctx);
+ m_block->genCode(ctx);
  emit ( ctx, "ret\t\t\t; end thread %s\n", m_name.c_str() );
 }
 
@@ -338,7 +343,7 @@ void WhileStmt::genCode(CodeCtx &ctx) {
   emit ( ctx, "label %d\t\t\t; while\n",whileStart ); 
   m_expr->evalTo(ctx, "_r0");
   emit ( ctx, "cmpjump 0 _r0 %d 0\t\t\t; if 0 jump to end while\n", whileEnd );
-  m_block.genCode(ctx);
+  m_block->genCode(ctx);
   emit ( ctx, "jump %d 0\t\t\t; loop\n", whileStart );
   emit ( ctx, "label %d\t\t\t; end while\n", whileEnd );
 }
@@ -350,17 +355,17 @@ void IfStmt::genCode(CodeCtx &ctx) {
  int ifEnd = CTX->NextLabel(); 
  m_eval->evalTo(ctx,"_r0");
  emit ( ctx, "cmpjump _r0 0 %d 0\t\t\t; false -> else\n", ifEnd );
- m_true.genCode(ctx);
+ m_true->genCode(ctx);
  int elseEnd=0; // unused unless else
- if ( m_false.m_stmts.size() ) {
+ if ( m_false->m_stmts->size() ) {
     elseEnd = CTX->NextLabel();
     // still in the if block so jump to the end
     emit ( ctx, "jump %d 0\t\t\t; skip else\n", elseEnd );
  }
  emit ( ctx, "label %d\t\t\t; end if\n", ifEnd );
- if (m_false.m_stmts.size() ) {
+ if (m_false->m_stmts->size() ) {
     DEBUG ( cout << " else " );
-    m_false.genCode(ctx);
+    m_false->genCode(ctx);
     emit ( ctx, "label %d\t\t\t; end else\n", elseEnd );
  }
 
@@ -499,8 +504,8 @@ void BinaryExpr::evalTo(CodeCtx &ctx, string &target) {
 void FuncExpr::stream(ostream &o) const {
   
   o << m_name << '(';
-  for (FunctionCallArgList::const_iterator itr = m_args.begin();
-       itr < m_args.end();
+  for (FunctionCallArgList::const_iterator itr = m_args->begin();
+       itr < m_args->end();
        ++itr ) {
       o << **itr << ',';
   }
@@ -508,17 +513,18 @@ void FuncExpr::stream(ostream &o) const {
 
 }
 FuncExpr::~FuncExpr() {
-  for (FunctionCallArgList::iterator itr = m_args.begin();
-       itr < m_args.end();
+  for (FunctionCallArgList::iterator itr = m_args->begin();
+       itr < m_args->end();
        ++itr) {
        delete *itr;
   }
+  delete m_args;
 }
 
 void FuncExpr::evalTo(CodeCtx &ctx, string &target) {
    // push args in reverse order
-   for (FunctionCallArgList::reverse_iterator itr = m_args.rbegin();
-        itr < m_args.rend();
+   for (FunctionCallArgList::reverse_iterator itr = m_args->rbegin();
+        itr < m_args->rend();
         ++itr) {
         (*itr)->evalTo(ctx, "_r0");
         emit ( ctx, "push _r0\t\t\t; function argument\n" );

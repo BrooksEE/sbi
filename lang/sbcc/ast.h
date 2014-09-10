@@ -63,13 +63,13 @@ class Expr : public Node {
 
 class Program : public Node {
   public:
-  Globals m_globals;
-  FunctionList m_functions;
-  ThreadList m_threads;
+  Globals *m_globals;
+  FunctionList *m_functions;
+  ThreadList *m_threads;
   Program( Globals *g, FunctionList *f, ThreadList *t ) : 
-    m_globals(*g), 
-    m_functions(*f),
-    m_threads(*t) {}
+    m_globals(g), 
+    m_functions(f),
+    m_threads(t) {}
   ~Program();
 
   void genCode(CodeCtx &);
@@ -91,10 +91,10 @@ class VarDec : public Node {
 
 class Block : public Node {
   public:
-  Stmts m_stmts;
-  Block ( Stmts *stmts ) : m_stmts ( *stmts ) {}
-  Block ( Block &b ) : m_stmts(b.m_stmts) { b.m_stmts.clear(); }
-  Block () {}
+  Stmts *m_stmts;
+  Block ( Stmts *stmts ) : m_stmts ( stmts ) {}
+  //Block ( Block *b ) : m_stmts(b.m_stmts) { b.m_stmts.clear(); }
+  Block () : m_stmts ( new Stmts() ) {}
   ~Block();
 
   void genCode(CodeCtx &);
@@ -103,12 +103,13 @@ class Block : public Node {
 class Function : public Node {
   public:
   std::string m_name;
-  FunctionArgList m_args;
-  Block m_block;
+  FunctionArgList *m_args;
+  Block *m_block;
   Function ( char* name, FunctionArgList * args, Block* block ) : 
     m_name(name), 
-    m_args(*args),
-    m_block(*block) {}
+    m_args(args),
+    m_block(block) {}
+  ~Function() { delete m_args; delete m_block; }
 
   void genCode(CodeCtx &);
 };
@@ -116,11 +117,11 @@ class Function : public Node {
 class Thread : public Node {
   public:
   std::string m_name;
-  Block m_block;
+  Block *m_block;
   Thread ( char *name, Block *block ) :
     m_name(name),
-    m_block(*block) {}
-  
+    m_block(block) {}
+  ~Thread() { delete m_block; } 
   void genCode(CodeCtx &);
 };
 
@@ -148,30 +149,32 @@ class FuncCallStmt : public Node {
 class WhileStmt : public Node {
   public:
   Expr* m_expr;
-  Block m_block;
+  Block *m_block;
   WhileStmt ( Expr* expr, Block *block ) :
      m_expr(expr),
-     m_block(*block) {}
+     m_block(block) {}
   WhileStmt ( Expr* expr, Node *stmt ) :
      m_expr(expr) { 
-        m_block.m_stmts.push_back(stmt); 
+        m_block = new Block();
+        m_block->m_stmts->push_back(stmt); 
      }
   WhileStmt ( Expr* expr ) : 
-     m_expr(expr) {}
-  ~WhileStmt() { delete m_expr; }
+     m_expr(expr) , m_block(NULL) {}
+  ~WhileStmt() { delete m_expr; delete m_block; }
   void genCode(CodeCtx &);
 };
 
 class IfStmt : public Node {
   public:
   Expr *m_eval;
-  Block m_true;
-  Block m_false;
+  Block *m_true;
+  Block *m_false;
   IfStmt ( Expr *eval, Block* t ) :
            m_eval(eval),
-           m_true(*t) {}
+           m_true(t),
+           m_false(NULL) {}
   
-  ~IfStmt() { delete m_eval; }
+  ~IfStmt() { delete m_eval; delete m_true; if (m_false) delete m_false; }
   void genCode(CodeCtx &);
 };
 
@@ -247,10 +250,10 @@ class InvExpr : public Expr {
 class FuncExpr : public Expr {
   public:
   std::string m_name;
-  FunctionCallArgList m_args;
+  FunctionCallArgList *m_args;
   FuncExpr ( const char* name, FunctionCallArgList *args) :
              m_name(name),
-             m_args(*args) {}
+             m_args(args) {}
   ~FuncExpr();
   void stream ( std::ostream &o) const ;
   void evalTo(CodeCtx &, std::string &);

@@ -16,6 +16,7 @@ Program* gProgram;
 #define YYDEBUG 1
  
 void yyerror(const char *s);
+
 %}
 
 %union {
@@ -39,7 +40,7 @@ void yyerror(const char *s);
 %token <sval> STRING
 
 
-%type<node> insscript stmt code_block function_decl thread assign expr term return deberr
+%type<node> sbcscript stmt code_block function_decl thread assign expr term return deberr
 %type<node> gvar_decl var_decl function_call while if ifblock elseblock wait
 %type<globals> globals
 %type<functions> function_list
@@ -54,8 +55,8 @@ void yyerror(const char *s);
 %left '*' '/'
 
 %%
-insscript:
-    globals function_list thread_list { gProgram = new Program ( $1, $2, $3 ); delete $1; delete $2; delete $3; }
+sbcscript:
+    globals function_list thread_list { gProgram = new Program ( $1, $2, $3 ); }
     ;
 globals:
     /* empty */ { $$=new Globals(); }
@@ -65,7 +66,7 @@ globals:
 
 gvar_decl:
     VAR STRING ';' { $$ = new VarDec($2); free($2); } 
-    | VAR STRING '=' INT ';' { IntExpr *v = new IntExpr($4); $$ = new VarDec($2, v); }
+    | VAR STRING '=' INT ';' { IntExpr *v = new IntExpr($4); $$ = new VarDec($2, v); free($2); }
     ;
 
 function_list: 
@@ -75,16 +76,16 @@ function_list:
     ;
 
 function_decl:
-    FUNCTION STRING '(' function_decl_args ')' code_block { $$=new Function($2, $4, (Block*)$6); delete $4; delete $6; free($2); }
+    FUNCTION STRING '(' function_decl_args ')' code_block { $$=new Function($2, $4, (Block*)$6); free($2); }
 
 function_decl_args:
     /* none */ { $$ = new FunctionArgList(); }
     | STRING { $$ = new FunctionArgList(); $$->push_back($1); free($1); }
-    | function_decl_args ',' STRING {$$->push_back($3); }
+    | function_decl_args ',' STRING {$$->push_back($3); free($3); }
     ;
 
 code_block:
-    '{' stmts '}' { $$=new Block( $2 ); delete $2; }
+    '{' stmts '}' { $$=new Block( $2 ); }
 
 thread_list:
     thread { $$ = new ThreadList(); $$->push_back((Thread*)$1); }
@@ -92,7 +93,7 @@ thread_list:
     ;
 
 thread:
-    THREAD STRING code_block { $$ = new Thread($2, (Block*)$3); delete $3; free($2); }
+    THREAD STRING code_block { $$ = new Thread($2, (Block*)$3); free($2); }
     ;
 
 stmts: 
@@ -122,22 +123,22 @@ assign:
     ;
 
 while:
-    WHILE '(' expr ')' code_block { $$ = new WhileStmt( (Expr*)$3, (Block*)$5 ); delete $5;}
+    WHILE '(' expr ')' code_block { $$ = new WhileStmt( (Expr*)$3, (Block*)$5 ); }
     | WHILE '(' expr ')' stmt { $$ = new WhileStmt ( (Expr*)$3, $5 ); }
     | WHILE '(' expr ')' ';' { $$ = new WhileStmt ( (Expr*)$3 ); }
     ;
 
 if:
-    ifblock { $$=$1; } /* TODO memory management is really really bad in this file clear et al */
-    | ifblock elseblock { $$=$1; ((IfStmt*)$$)->m_false = *(Block*)$2; ((Block*)$2)->m_stmts.clear(); delete $2; } 
+    ifblock { $$=$1; }
+    | ifblock elseblock { $$=$1; ((IfStmt*)$$)->m_false = (Block*)$2; } 
     ;
 ifblock:
-    IF '(' expr ')' code_block { $$ = new IfStmt ( (Expr*)$3, (Block*)$5 ); delete $5; }
-    | IF '(' expr ')' stmt { Block tmp; tmp.m_stmts.push_back($5); $$ = new IfStmt ( (Expr*)$3, &tmp ); }
+    IF '(' expr ')' code_block { $$ = new IfStmt ( (Expr*)$3, (Block*)$5 ); }
+    | IF '(' expr ')' stmt { Block* tmp = new Block(); tmp->m_stmts->push_back($5); $$ = new IfStmt ( (Expr*)$3, tmp ); }
     ;
 elseblock:
     ELSE code_block { $$ = $2; } 
-    | ELSE stmt { $$ = new Block(); ((Block*)$$)->m_stmts.push_back($2); }
+    | ELSE stmt { $$ = new Block(); ((Block*)$$)->m_stmts->push_back($2); }
 
 
 return:
@@ -145,11 +146,11 @@ return:
     | RETURN expr ';' { $$ = new ReturnStmt((Expr*)$2); }
 
 wait:
-    WAIT '(' STRING ')' ';' { $$ = new WaitStmt($3); }
+    WAIT '(' STRING ')' ';' { $$ = new WaitStmt($3); free($3) }
     ;
 
 function_call:
-    STRING '(' function_call_args ')' { $$ = new FuncExpr( $1, $3 ); delete $3; free($1); }
+    STRING '(' function_call_args ')' { $$ = new FuncExpr( $1, $3 ); free($1); }
     ;
 
 function_call_args:

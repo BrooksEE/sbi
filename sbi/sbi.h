@@ -117,9 +117,9 @@
 	
     // public api 
 	void* sbi_init(sbi_context_t*);
-    sbi_error_t sbi_begin();
-	unsigned int sbi_running(void*);
-	unsigned int sbi_step();
+    sbi_error_t sbi_begin(void*);
+	sbi_error_t sbi_running(void*);
+	sbi_error_t sbi_step(void*);
 	void sbi_interrupt(const INTERRUPT id, void*);
     void sbi_cleanup(void*); // free resources after program run
 

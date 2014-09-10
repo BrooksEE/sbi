@@ -14,7 +14,12 @@ int math(int a, int b, int c) {
 // main
 void main() {
   int tId = thread(thread2);
+
   wait (tId);
+
+
+  //thread(thread2); // if you don't save the thread id prog exits 
+                     // before thread2 does much.
   int c=0;
   while(c<10) {
      c = c+ 1;

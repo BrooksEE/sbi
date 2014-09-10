@@ -51,10 +51,7 @@ class Node {
 class Expr : public Node {
   public:
    virtual void stream(std::ostream &o) const { o << "** stream not implemented **";  }
-   virtual void evalTo (CodeCtx &ctx, std::string &target );
-   void evalTo(CodeCtx &ctx, const char* t) {
-      std::string tmp(t);
-      evalTo(ctx, tmp); }
+   virtual void evalTo (CodeCtx &ctx, const std::string &target );
    void genCode( CodeCtx &ctx );
 };
 
@@ -181,13 +178,6 @@ class DebugStmt : public Node {
   void genCode(CodeCtx &);
 };
 
-class ThreadStmt : public Node {
-  public:
-  std::string m_name;
-  ThreadStmt(const char* name) : m_name(name) {}
-  void genCode(CodeCtx &ctx);
-};
-
 class WaitStmt : public Node {
   public:
   std::string m_wait;
@@ -204,7 +194,7 @@ class IntExpr : public Expr {
   int m_val;
   IntExpr(int val) : m_val(val) {}
   void stream(std::ostream &o) const { o << m_val; }
-  void evalTo(CodeCtx &, std::string &);
+  void evalTo(CodeCtx &, const std::string &);
 
 };
 
@@ -213,7 +203,7 @@ class VarExpr : public Expr {
   std::string m_var;
   VarExpr(const char* var) : m_var(var) {}
   void stream(std::ostream &o) const { o << m_var; }
-  void evalTo(CodeCtx &, std::string &);
+  void evalTo(CodeCtx &, const std::string &);
 
 };
 
@@ -228,7 +218,7 @@ class BinaryExpr : public Expr {
                m_right(r) {}
   ~BinaryExpr() { delete m_left; delete m_right; }
   void stream(std::ostream &o) const;
-  void evalTo(CodeCtx &, std::string &);
+  void evalTo(CodeCtx &, const std::string &);
 };
 
 class InvExpr : public Expr {
@@ -237,7 +227,7 @@ class InvExpr : public Expr {
   InvExpr ( Expr *e ) : m_expr (e) {}
   ~InvExpr() { delete m_expr; }
   void stream ( std::ostream &o) const { o << "!(" << *m_expr << ')'; }
-  void evalTo(CodeCtx &, std::string &);
+  void evalTo(CodeCtx &, const std::string &);
 };
 
 class FuncExpr : public Expr {
@@ -249,7 +239,7 @@ class FuncExpr : public Expr {
              m_args(args) {}
   ~FuncExpr();
   void stream ( std::ostream &o) const ;
-  void evalTo(CodeCtx &, std::string &);
+  void evalTo(CodeCtx &, const std::string &);
 };
 
 class ThreadExpr : public Expr {
@@ -257,7 +247,8 @@ class ThreadExpr : public Expr {
   std::string m_name;
   ThreadExpr(const char* name) : m_name(name) {}
   void stream ( std::ostream &o) const { o << "thread (" << m_name << ")"; }
-  void evalTo(CodeCtx &, std::string &);
+  void genCode(CodeCtx &);
+  void evalTo(CodeCtx &, const std::string &);
 };
 
 #endif

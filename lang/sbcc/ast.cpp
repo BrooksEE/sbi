@@ -337,12 +337,6 @@ void DebugStmt::genCode(CodeCtx &ctx) {
   emit ( ctx, "%s _r0\n", m_call.c_str() );
 }
 
-void ThreadStmt::genCode(CodeCtx &ctx) {
-  DEBUG ( cout << "thread (" << m_name << " ) " );
-  int l=CTX->GetNameLabel(m_name);
-  emit ( ctx, "thread %d\t\t\t; start thread %s\n", m_name.c_str() );
-}
-
 void WaitStmt::genCode(CodeCtx &ctx) {
   DEBUG ( cout << "wait ( " << m_wait << " ) " );
   string loc = CTX->FindVarLoc(m_wait);
@@ -353,15 +347,15 @@ void WaitStmt::genCode(CodeCtx &ctx) {
 void Expr::genCode(CodeCtx &ctx) {
   CTX->error(" ** expression should use eval (compiler error) ** " );
 }
-void Expr::evalTo(CodeCtx &ctx, string &target) {
+void Expr::evalTo(CodeCtx &ctx, const string &target) {
   CTX->error(" ** evalTo not implemented ** " );
 }
 
-void IntExpr::evalTo(CodeCtx &ctx, string &target) {
+void IntExpr::evalTo(CodeCtx &ctx, const string &target) {
    emit ( ctx, "move %s %d;\t\t\tInt Expr\n", target.c_str(), m_val );
 }
 
-void VarExpr::evalTo(CodeCtx &ctx, string &target) {
+void VarExpr::evalTo(CodeCtx &ctx, const string &target) {
    string loc = CTX->FindVarLoc(m_var);
    emit ( ctx, "move %s %s\t\t\t; value of %s\n", target.c_str(), loc.c_str(), m_var.c_str() );
 }
@@ -405,12 +399,12 @@ void BinaryExpr::stream(std::ostream &o) const {
  o << ' ' << *m_right << ')' ; 
 }
 
-void InvExpr::evalTo(CodeCtx &ctx, string &target) {
+void InvExpr::evalTo(CodeCtx &ctx, const string &target) {
   m_expr->evalTo(ctx,target);
   emit ( ctx, "inv %s\t\t\t; !(expr)\n", target.c_str() );
 }
 
-void BinaryExpr::evalTo(CodeCtx &ctx, string &target) {
+void BinaryExpr::evalTo(CodeCtx &ctx, const string &target) {
   m_left->evalTo(ctx, "_r0"); 
   emit ( ctx, "push _r0\t\t\t; left hand result\n" ); 
   m_right->evalTo(ctx, "_r1");  
@@ -472,7 +466,7 @@ FuncExpr::~FuncExpr() {
   delete m_args;
 }
 
-void FuncExpr::evalTo(CodeCtx &ctx, string &target) {
+void FuncExpr::evalTo(CodeCtx &ctx, const string &target) {
    // TODO check actual function
    // and ensure it returns a value
    // (error if function is void)
@@ -489,7 +483,12 @@ void FuncExpr::evalTo(CodeCtx &ctx, string &target) {
    emit ( ctx, "pop %s\t\t\t; func result\n", target.c_str() );
 }
 
-void ThreadExpr::evalTo(CodeCtx &ctx, string &target) {
+void ThreadExpr::genCode(CodeCtx &ctx) {
+  DEBUG ( cout << "thread (" << m_name << " ) " );
+  evalTo(ctx,"_r0"); // ignore tId when used as a raw statement.
+}
+
+void ThreadExpr::evalTo(CodeCtx &ctx, const string &target) {
    int l=CTX->GetNameLabel(m_name);
    emit ( ctx, "thread %d %s\t\t\t; start thread %s\n", l, target.c_str(), m_name.c_str() );
 }

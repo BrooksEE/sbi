@@ -40,7 +40,7 @@ void yyerror(const char *s);
 
 
 %type<node> sbcscript stmt code_block function_decl assign expr term return deberr
-%type<node> gvar_decl var_decl function_call while if ifblock elseblock wait thread_stmt thread_expr
+%type<node> gvar_decl var_decl function_call while if ifblock elseblock wait thread
 %type<globals> globals
 %type<functions> function_list
 %type<funcargs> function_decl_args 
@@ -106,7 +106,7 @@ stmt:
     | return { $$ = $1; }
     | deberr { $$ = $1; }
     | wait { $$ = $1; }
-    | thread_stmt { $$ = $1; }
+    | thread ';' { $$ = $1; }
     ;
 
 var_decl:
@@ -141,16 +141,12 @@ return:
     RETURN ';' { $$ = new ReturnStmt(NULL); }
     | RETURN expr ';' { $$ = new ReturnStmt((Expr*)$2); }
 
-thread_stmt:
-    THREAD '(' STRING ')' ';' { $$ = new ThreadStmt($3); free($3); }
-    ;
-
-thread_expr:
+thread:
     THREAD '(' STRING ')' { $$ = new ThreadExpr($3); free($3); }
     ;
 
 wait:
-    WAIT '(' STRING ')' ';' { $$ = new WaitStmt($3); free($3) }
+    WAIT '(' STRING ')' ';' { $$ = new WaitStmt($3); free($3); }
     ;
 
 function_call:
@@ -187,7 +183,7 @@ term:
     INT { $$ = new IntExpr($1); }
     | STRING { $$ = new VarExpr($1); free($1); }
     | function_call { $$ = $1; }
-    | thread_expr { $$ = $1; }
+    | thread { $$ = $1; }
     ;
 
 lval:

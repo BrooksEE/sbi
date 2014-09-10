@@ -27,10 +27,12 @@ class CtxImpl {
 
     LabelNums labels; 
     int nextLabel;
+    int nextGlobal;
 
     CtxImpl() :
         regStack(2), // start at 2 to reserve _r0 and _r1 for expressions.
-        nextLabel(0) {
+        nextLabel(0),
+        nextGlobal(0) {
         PushVarCtx(); // global scope
     }
     ~CtxImpl() {
@@ -59,23 +61,21 @@ class CtxImpl {
        
        // add var to context
        char rbuf[5];
-       VarCtx* glbl = varScope.front();
-       if (glbl->size() < GLOBALS_MAX || varScope.size()==1) {
+       if (nextGlobal <= GLOBALS_MAX || varScope.size()==1) {
            // in this case, go ahead and just use a free global variable
            // instead of registers.
-           if (glbl->size() > GLOBALS_MAX-1) {
+           if (nextGlobal > GLOBALS_MAX-1) {
               error ( "global variable overflow." );
            }
-           snprintf(rbuf,5,"_t%d", glbl->size()+RESERVED_GLOBALS);
-           (*glbl)[var] = string(rbuf);
+           snprintf(rbuf,5,"_t%d", nextGlobal++);
        } else {
           // put variable in current scope. 
           if (regStack>15) {
                error ( "Too many local variables." );
           }
           snprintf(rbuf,5,"_r%d",regStack++);
-          (*ctx)[var] = string(rbuf);
        }
+       (*ctx)[var] = string(rbuf);
        
     }
 
@@ -114,7 +114,7 @@ class CtxImpl {
 
     // error management
     void error(const char* err) {
-        cout << err << endl;
+        cerr << err << endl;
     }
 };
 

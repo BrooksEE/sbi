@@ -279,6 +279,34 @@ void AssignStmt::genCode(CodeCtx &ctx) {
 
 }
 
+void UserfuncStmt::genCode(CodeCtx &ctx) {
+   
+   CTX->PushVarCtx(); // var ctx for userarg vars
+   char arg_buf[25];
+   vector<string> locs;
+ 
+   // push args in reverse order
+   int argn=0;
+   for (FunctionCallArgList::iterator itr = m_args->begin();
+        itr < m_args->end();
+        ++itr, ++argn) {
+        snprintf ( arg_buf, 225, "%darg", argn );
+        CTX->AddVar ( arg_buf );
+        string loc = CTX->FindVarLoc(arg_buf);
+        locs.push_back(loc);
+        (*itr)->evalTo(ctx, loc);
+   }
+   emit ( ctx, "sint %d\t\t\t; user func %d\n", m_ncall, m_ncall );
+   emit ( ctx, "int" );
+   for (int i=0;i<m_args->size();++i) {
+       string loc = locs.at(i);
+       emit (ctx, " %s", loc.c_str() );
+   }
+   emit (ctx, "\t\t\t; call func with args\n" );
+
+   CTX->PopVarCtx();
+}
+
 void FuncCallStmt::genCode(CodeCtx &ctx) {
  DEBUG ( cout << *m_call << endl );
  ((Expr*)m_call)->evalTo(ctx, "_r0");

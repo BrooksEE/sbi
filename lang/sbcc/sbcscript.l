@@ -27,6 +27,7 @@ return         { return RETURN; }
 debug          { return DEBUG; }
 error          { return ERROR; }
 wait           { return WAIT; }
+user[0-9]+     { yylval.ival = atoi(yytext+4); return USERF; }
 ==             { return EQOP; }
 \!=            { return NEOP; }
 \<=            { return LE; }

@@ -25,6 +25,10 @@ void main() {
      c = c+ 1;
   }
   _debug (c);
+
+  // call a couple user funcs
+  user0 ( (c+3), c-3, 7+5 );
+  user1 ();
 }
 
 // another counter thread

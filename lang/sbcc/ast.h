@@ -129,6 +129,7 @@ class FuncCallStmt : public Node {
   void genCode(CodeCtx &);
 };
 
+
 class WhileStmt : public Node {
   public:
   Expr* m_expr;
@@ -240,6 +241,13 @@ class FuncExpr : public Expr {
   ~FuncExpr();
   void stream ( std::ostream &o) const ;
   void evalTo(CodeCtx &, const std::string &);
+};
+
+class UserfuncStmt : public FuncExpr {
+  public:
+  unsigned int m_ncall;
+  UserfuncStmt ( unsigned int n, FunctionCallArgList* args) : FuncExpr("user", args), m_ncall(n) {}
+  void genCode(CodeCtx &);
 };
 
 class ThreadExpr : public Expr {

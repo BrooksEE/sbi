@@ -35,7 +35,7 @@ void yyerror(const char *s);
 %token WHILE IF ELSE RETURN VOID
 %token EQOP NEOP GE LE
 
-%token <ival> INT
+%token <ival> INT USERF
 %token <sval> STRING
 
 
@@ -107,6 +107,7 @@ stmt:
     | deberr { $$ = $1; }
     | wait { $$ = $1; }
     | thread ';' { $$ = $1; }
+    | USERF '(' function_call_args ')' ';' { $$ = new UserfuncStmt( $1, $3 ); }
     ;
 
 var_decl:
@@ -154,7 +155,8 @@ function_call:
     ;
 
 function_call_args:
-    expr { $$ = new FunctionCallArgList(); $$->push_back((Expr*)$1); }
+    /* empty */ { $$ = new FunctionCallArgList(); }
+    | expr { $$ = new FunctionCallArgList(); $$->push_back((Expr*)$1); }
     | function_call_args ',' expr { $$->push_back((Expr*)$3); }
     ;
 

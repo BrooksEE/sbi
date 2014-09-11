@@ -527,7 +527,7 @@ sbi_error_t sbi_step(void *rt)
                     _TRACE ( "Thread (%d) exit: %d\n", thread->threadid, ret );
                     _sbi_removethread(thread,RT);
                     thread=NULL;
-                    if (ret == SBI_PROG_EXIT) {
+                    if (ret >= SBI_PROG_EXIT) {
                        // program exit
                        int i;
                        for ( i=0;i<RT->thread_cnt;++i ) _sbi_stopthread(RT->_sbi_threads[i]); 
@@ -552,6 +552,7 @@ sbi_error_t sbi_step(void *rt)
 
 unsigned int sbi_running(void* rt)
 {
+	if (!rt) return 0;
 	int c = 0;
 	int i;
 	for (i=0; i<RT->thread_cnt; i++)

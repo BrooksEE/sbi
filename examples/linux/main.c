@@ -6,10 +6,10 @@
 
 FILE* f1;
 
-byte getfch(PCOUNT p, void* rt)
+uint8_t getfch(PCOUNT p, void* rt)
 {
 	fseek (f1, p, SEEK_SET);
-	byte r = fgetc(f1);
+	uint8_t r = fgetc(f1);
     //printf ( "prog1 byte %d=%d\n", p, r );
 	return r;
 }

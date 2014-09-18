@@ -1,0 +1,16 @@
+; Simple counter program
+;
+; Counts numbers from 0x11111111 to 0x11111120 
+;
+; this program is intended to show sbi compiled with DTYPE_WIDTH=4
+
+assign _t0 0x11111111 ; t0 
+
+label 0 ; Label for loop
+debug _t0 ; Write t0 to debug stream
+incr _t0 ; Increments t0
+low _t0 0x11111120 _t1
+cmpjump _t1 1 0 0 ; If _t0 is lower than 10 jump to label 0 (loop)
+
+exit ; else exit
+

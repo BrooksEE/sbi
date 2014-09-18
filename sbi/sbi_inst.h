@@ -46,6 +46,8 @@
 	
 	#define _varid							0x04
     #define _regid                          0x05
-	#define _value							0xF4
+	#define _value8							0xF1
+    #define _value16                        0XF2
+    #define _value32                        0XF4
 
 #endif

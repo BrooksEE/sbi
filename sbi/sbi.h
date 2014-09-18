@@ -5,6 +5,8 @@
 /*                                                                            */
 /* ========================================================================== */
 
+#include <stdint.h>
+
 #ifndef _SBI_H
 	#define _SBI_H
     
@@ -57,9 +59,22 @@
     #ifndef INTQUEUE_SIZE
         #define INTQUEUE_SIZE               6
     #endif
+
+    // data width in bytes for variables
+    // registers, stack etc.  
+    #ifndef DATA_WIDTH
+        #define DATA_WIDTH 1
+    #endif
 	
-	// Define 'byte' variable type
-	typedef unsigned char byte;
+    #if DATA_WIDTH == 4
+    typedef uint32_t DTYPE;
+    #elif DATA_WIDTH == 2
+    typedef uint16_t DTYPE; 
+    #elif DATA_WIDTH == 1
+    typedef uint8_t DTYPE;
+    #else
+    #error "DATA_WIDTH must be 1, 2 or 4"
+    #endif
 	
 	// Define 'program counter' variable type
 	typedef unsigned int PCOUNT;
@@ -79,9 +94,6 @@
 	// Define 'sbi thread number' variable type
 	typedef unsigned int SBITHREADNUM;
 	
-	// Define 'program variable' variable type
-	typedef unsigned char VARIABLE;
-
     typedef enum {
       SBI_NOERROR,
       SBI_THREAD_EXIT, // normal thread exit
@@ -102,7 +114,7 @@
 
 	// User functions
     // The user must pass the void* to _getval, _setval if used
-	typedef void (*sbi_user_func)(byte[], void* );
+	typedef void (*sbi_user_func)(DTYPE [], void* );
 
 	// Put here your debug code
 	typedef void(*debugn_func)(int n, void*);
@@ -111,7 +123,7 @@
 	typedef void(*errorn_func)(int n, void* );
     
     // returns the next byte from the source sbi
-	typedef byte (*getfch_func)(PCOUNT p, void*);
+	typedef uint8_t (*getfch_func)(PCOUNT p, void*);
 	
 	typedef struct {
 		debugn_func debugn;
@@ -132,8 +144,8 @@
 
     // accessor functions can be used
     // in user_function context to get/set parameters.
-	byte getval(const byte type, const byte val, void*);
-	unsigned int setval(const byte type, const byte num, const byte val, void*);
+	DTYPE getval(uint8_t type, DTYPE val, void*);
+	unsigned int setval(uint8_t type, uint8_t num, DTYPE val, void*);
 	
 	
 #endif

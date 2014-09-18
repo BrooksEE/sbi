@@ -1,8 +1,9 @@
 #include "libsasmc.h"
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include <cstdlib>
+#include <cstdio>
+#include <stdint.h>
+#include <cstring>
 #include <iostream>
 #include <fstream>
 #include <map>
@@ -29,9 +30,9 @@ class sasmc_ctx_t {
     fstream f; // .SBI
     fstream fp; // .SBI.PRG
     int linen;
-    byte labelsn;
+    uint8_t labelsn;
     int labels[256];
-    byte interruptsn;
+    uint8_t interruptsn;
     int interrupts[256];
     long progln;
     string prgname;
@@ -40,7 +41,7 @@ class sasmc_ctx_t {
         labelsn(0),
         progln(0),
         interruptsn(0) {
-	    for (byte i=0; i<255; i++) labels[i]=0;
+        memset(labels,0,sizeof(labels));
     }
 };
 
@@ -74,7 +75,7 @@ void endsbi(sasmc_ctx_t& ctx)
 }
 
 #define sbiwb(b) _sbiwb(b,ctx)
-void _sbiwb(byte b, sasmc_ctx_t& ctx)
+void _sbiwb(uint8_t b, sasmc_ctx_t& ctx)
 {
 	char buf[1] = { b };
 	ctx.f.write(buf, 1);
@@ -87,7 +88,7 @@ void sbiwi(int addr, sasmc_ctx_t& ctx)
 }
 
 #define wb(b) _wb(b,ctx) // easy access to wb for pline
-void _wb(byte b, sasmc_ctx_t& ctx)
+void _wb(uint8_t b, sasmc_ctx_t& ctx)
 {
 	char buf[1] = { b };
 	ctx.fp.write(buf, 1);
@@ -102,7 +103,7 @@ void wsbi(sasmc_ctx_t& ctx)
 	sbiwb(LABELSECTION);
 	sbiwb(ctx.labelsn);
 	
-	byte n;
+	uint8_t n;
 	for (n=0; n<ctx.labelsn; n++)
 		sbiwi(headln + ctx.labels[n],ctx);
 	
@@ -150,21 +151,38 @@ void _cerror(string command, CERRORTYPE type, sasmc_ctx_t &ctx)
 
 // helper compare argt[i] for _varid or _regid
 #define VARORREG(i) (argt[i]==_varid||argt[i]==_regid)
+#define CONST(i) ((argt[i]&0xF0)==0xF0)
+
+#define WVAL(i) do {\
+            wb(argt[i]);\
+            switch(argt[i]) {\
+               case _regid:\
+               case _varid:\
+                  wb(argv[i]); \
+                  break;\
+               case _value8:\
+               case _value16: \
+               case _value32: \
+                  wb(argv[i] & 0xFF); \
+                  if (argt[i] == _value8) break; \
+                  wb((argv[i]>>8) & 0xFF); \
+                  if (argt[i] == _value16) break; \
+                  wb((argv[i]>>16) & 0xFF); \
+                  wb((argv[i]>>24) & 0xFF); \
+                  break; \
+            }\
+       } while(0)
 
 /*
 	Compilation functions
 */
 int pline(string command, int argn, vector<string>& args, sasmc_ctx_t& ctx)
 {
-	byte argt[8];
-	byte argv[8];
+	uint8_t argt[8];
+	uint32_t argv[8];
 	int i=0;
 	int p=0;
-	for (i=0; i<8; i++)
-	{
-		argt[i]=_value;
-		argv[i]=0;
-	}
+    memset(argt,_value8,sizeof(argt)); // default the args to 8 bit consts
 	for (i=0; i<argn; i++)
 	{
 		if ((args[i][0]=='_')&&
@@ -178,21 +196,22 @@ int pline(string command, int argn, vector<string>& args, sasmc_ctx_t& ctx)
 			p++;
 		} else 
         {
-			argt[p]=_value;
             bool base16 = args[i].size()>2 &&
                           args[i].substr(0,2).compare("0x")==0;
 			argv[p]=strtol(args[i].c_str(),NULL, base16?16:10);
+            if (argv[p]<=0xff) argt[p] = _value8;
+            else if (argv[p]<=0xffff) argt[p] = _value16;
+            else argt[p] = _value32;
 			p++;
 		}
 	}
 	if (command.compare("assign")==0)
 	{
 		if (argn!=2) { cerror(command, WRONGNUM); return 1; }
-		if (!VARORREG(0)||(argt[1]!=_value)) { cerror(command, WRONGTYPE); return 1; }
+		if (!VARORREG(0) || !CONST(1)) { cerror(command, WRONGTYPE); return 1; }
 		wb(_istr_assign);
-        wb(argt[0]);
-		wb(argv[0]);
-		wb(argv[1]);
+        WVAL(0);
+        WVAL(1);
 		return 0;
 	}
 	if (command.compare("move")==0)
@@ -200,10 +219,8 @@ int pline(string command, int argn, vector<string>& args, sasmc_ctx_t& ctx)
 		if (argn!=2) { cerror(command, WRONGNUM); return 1; }
 		if (!VARORREG(0)) { cerror(command, WRONGTYPE); return 1; }
 		wb(_istr_move);
-        wb(argt[0]);
-		wb(argv[0]);
-        wb(argt[1]);
-		wb(argv[1]);
+        WVAL(0);
+        WVAL(1);
 		return 0;
 	}
 	if (command.compare("add")==0 ||
@@ -220,20 +237,16 @@ int pline(string command, int argn, vector<string>& args, sasmc_ctx_t& ctx)
 		if (argn!=3) { cerror(command, WRONGNUM); return 1; }
 		if (!VARORREG(2)) { cerror(command, WRONGTYPE); return 1; }
 		wb(instructions[command]);
-		wb(argt[0]);
-		wb(argv[0]);
-		wb(argt[1]);
-		wb(argv[1]);
-        wb(argt[2]);
-		wb(argv[2]);
+        WVAL(0);
+        WVAL(1);
+        WVAL(2);
 		return 0;
 	}
     if (command.compare("push")==0)
     {
         if (argn!=1) { cerror(command, WRONGNUM); return 1; }
         wb(_istr_push);
-        wb(argt[0]);
-        wb(argv[0]);
+        WVAL(0);
         return 0;
     }
     if (command.compare("pop")==0) 
@@ -243,51 +256,27 @@ int pline(string command, int argn, vector<string>& args, sasmc_ctx_t& ctx)
         wb(_istr_pop);
         wb(argn);
         if (argn>0) {
-            wb(argt[0]);
-            wb(argv[0]);
+            WVAL(0);
         }
         return 0;
     }
-	if (command.compare("incr")==0)
+	if (command.compare("incr")==0 || 
+        command.compare("decr")==0 || 
+        command.compare("inv")==0  ||
+        command.compare("tob")==0
+       )
 	{
 		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
 		if (!VARORREG(0)) { cerror(command, WRONGTYPE); return 1; }
-		wb(_istr_incr);
+		wb(instructions[command]);
         wb(argt[0]);
-		wb(argv[0]);
-		return 0;
-	}
-	if (command.compare("decr")==0)
-	{
-		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
-		if (!VARORREG(0)) { cerror(command, WRONGTYPE); return 1; }
-		wb(_istr_decr);
-        wb(argt[0]);
-		wb(argv[0]);
-		return 0;
-	}
-	if (command.compare("inv")==0)
-	{
-		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
-		if (!VARORREG(0)) { cerror(command, WRONGTYPE); return 1; }
-		wb(_istr_inv);
-        wb(argt[0]);
-		wb(argv[0]);
-		return 0;
-	}
-	if (command.compare("tob")==0)
-	{
-		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
-		if (!VARORREG(0)) { cerror(command, WRONGTYPE); return 1; }
-		wb(_istr_tob);
-        wb(argt[1]);
 		wb(argv[0]);
 		return 0;
 	}
 	if (command.compare("label")==0)
 	{
 		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
-		if (argt[0]!=_value) { cerror(command, WRONGTYPE); return 1; }
+		if (!CONST(0)) { cerror(command, WRONGTYPE); return 1; }
 		ctx.labels[argv[0]] = ctx.progln;
 		if ((argv[0]+1) > ctx.labelsn) ctx.labelsn = argv[0]+1;
 		return 0;
@@ -295,7 +284,7 @@ int pline(string command, int argn, vector<string>& args, sasmc_ctx_t& ctx)
 	if (command.compare("sig")==0)
 	{
 		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
-		if (argt[0]!=_value) { cerror(command, WRONGTYPE); return 1; }
+		if (!CONST(0)) { cerror(command, WRONGTYPE); return 1; }
 		ctx.interrupts[argv[0]] = ctx.progln;
 		if ((argv[0]+1) > ctx.interruptsn) ctx.interruptsn = argv[0]+1;
 		return 0;
@@ -303,24 +292,20 @@ int pline(string command, int argn, vector<string>& args, sasmc_ctx_t& ctx)
 	if (command.compare("jump")==0)
 	{
 		if (argn!=2) { cerror(command, WRONGNUM); return 1; }
-		if (argt[1]!=_value) { cerror(command, WRONGTYPE); return 1; }
+		if (!CONST(1)) { cerror(command, WRONGTYPE); return 1; }
 		wb(_istr_jump);
-		wb(argt[0]);
-		wb(argv[0]);
-		wb(argv[1]);
+        WVAL(0);
+		wb(argv[1]); // note leaving as one byte since it's really just a 1 or 0
 		return 0;
 	}
 	if (command.compare("cmpjump")==0)
 	{
 		if (argn!=4) { cerror(command, WRONGNUM); return 1; }
-		if (argt[3]!=_value) { cerror(command, WRONGTYPE); return 1; }
+		if (!CONST(3)) { cerror(command, WRONGTYPE); return 1; }
 		wb(_istr_cmpjump);
-		wb(argt[0]);
-		wb(argv[0]);
-		wb(argt[1]);
-		wb(argv[1]);
-		wb(argt[2]);
-		wb(argv[2]);
+        WVAL(0);
+        WVAL(1);
+        WVAL(2);
 		wb(argv[3]);
 		return 0;
 	}
@@ -330,28 +315,14 @@ int pline(string command, int argn, vector<string>& args, sasmc_ctx_t& ctx)
 		wb(_istr_ret);
 		return 0;
 	}
-	if (command.compare("debug")==0)
-	{
+	if (command.compare("debug")==0 ||
+	    command.compare("error")==0 ||
+        command.compare("sint")==0
+       )
+    {
 		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
-		wb(_istr_debug);
-		wb(argt[0]);
-		wb(argv[0]);
-		return 0;
-	}
-	if (command.compare("error")==0)
-	{
-		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
-		wb(_istr_error);
-		wb(argt[0]);
-		wb(argv[0]);
-		return 0;
-	}
-	if (command.compare("sint")==0)
-	{
-		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
-		wb(_istr_sint);
-		wb(argt[0]);
-		wb(argv[0]);
+		wb(instructions[command]);
+        WVAL(0);
 		return 0;
 	}
 	if (command.compare("int")==0)
@@ -359,8 +330,7 @@ int pline(string command, int argn, vector<string>& args, sasmc_ctx_t& ctx)
 		wb(_istr_int);
 		for (int i=0; i<8; i++)
 		{
-			wb(argt[i]);
-			wb(argv[i]);
+            WVAL(i);
 		}
 		return 0;
 	}
@@ -368,18 +338,15 @@ int pline(string command, int argn, vector<string>& args, sasmc_ctx_t& ctx)
 		if (argn!=2) { cerror(command, WRONGNUM); return 1; }
         if (!VARORREG(1)) { cerror(command, WRONGTYPE); return 1; }
         wb(_istr_thread);
-        wb(argt[0]);
-        wb(argv[0]);
-        wb(argt[1]);
-        wb(argv[1]);
+        WVAL(0);
+        WVAL(1);
         return 0;
     }
     if (command.compare("wait")==0) {
         if (argn!=1) { cerror(command, WRONGNUM); return 1; }
         if (!VARORREG(0)) { cerror(command, WRONGTYPE); return 1; }
         wb(_istr_wait);
-        wb(argt[0]);
-        wb(argv[0]);
+        WVAL(0);
         return 0;
     }
 	if (command.compare("exit")==0)

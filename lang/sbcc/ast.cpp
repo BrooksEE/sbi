@@ -45,8 +45,8 @@ class CtxImpl {
     void PopVarCtx() {
        VarCtx* back=varScope.back();
        varScope.pop_back();
-       if (varScope.size()) // if 0 then we don't use regs
-          regStack -= varScope.size();
+       if (back->size()) // if 0 then we don't use regs
+          regStack -= back->size();
        delete back;
     }
     VarCtx* CurVarCtx() { return varScope.back(); } 
@@ -60,7 +60,7 @@ class CtxImpl {
        
        // add var to context
        char rbuf[5];
-       if (nextGlobal <= GLOBALS_MAX || varScope.size()==1) {
+       if (varScope.size()==1) {
            // in this case, go ahead and just use a free global variable
            // instead of registers.
            if (nextGlobal > GLOBALS_MAX-1) {
@@ -69,7 +69,7 @@ class CtxImpl {
            snprintf(rbuf,5,"_t%d", nextGlobal++);
        } else {
           // put variable in current scope. 
-          if (regStack>15) {
+          if (regStack>15) { // TODO maybe get rid of register concept and just use the stack.
                error ( "Too many local variables." );
           }
           snprintf(rbuf,5,"_r%d",regStack++);

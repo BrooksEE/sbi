@@ -297,15 +297,27 @@ void UserfuncStmt::genCode(CodeCtx &ctx) {
         (*itr)->evalTo(ctx, loc);
    }
    emit ( ctx, "sint %d\t\t\t; user func %d\n", m_ncall, m_ncall );
-   emit ( ctx, "int" );
+   if (m_evalTo.size()) {
+     emit ( ctx, "intr %s", m_evalTo.c_str() );
+   } else {
+     emit ( ctx, "int" );
+   }
+   
    for (int i=0;i<m_args->size();++i) {
        string loc = locs.at(i);
        emit (ctx, " %s", loc.c_str() );
    }
+
    emit (ctx, "\t\t\t; call func with args\n" );
 
    CTX->PopVarCtx();
 }
+
+void UserfuncStmt::evalTo(CodeCtx &ctx, const std::string &to) {
+    m_evalTo = to;
+    genCode(ctx);
+}
+
 
 void FuncCallStmt::genCode(CodeCtx &ctx) {
  DEBUG ( cout << *m_call << endl );

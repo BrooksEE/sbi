@@ -246,8 +246,10 @@ class FuncExpr : public Expr {
 class UserfuncStmt : public FuncExpr {
   public:
   unsigned int m_ncall;
-  UserfuncStmt ( unsigned int n, FunctionCallArgList* args) : FuncExpr("user", args), m_ncall(n) {}
+  std::string m_evalTo;
+  UserfuncStmt ( unsigned int n, FunctionCallArgList* args ) : FuncExpr("user", args), m_ncall(n) {}
   void genCode(CodeCtx &);
+  void evalTo(CodeCtx &, const std::string &);
 };
 
 class ThreadExpr : public Expr {

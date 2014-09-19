@@ -40,7 +40,7 @@ void yyerror(const char *s);
 
 
 %type<node> sbcscript stmt code_block function_decl assign expr term return deberr
-%type<node> gvar_decl var_decl function_call while if ifblock elseblock wait thread
+%type<node> gvar_decl var_decl function_call userfunc_call while if ifblock elseblock wait thread
 %type<globals> globals
 %type<functions> function_list
 %type<funcargs> function_decl_args 
@@ -107,7 +107,7 @@ stmt:
     | deberr { $$ = $1; }
     | wait { $$ = $1; }
     | thread ';' { $$ = $1; }
-    | USERF '(' function_call_args ')' ';' { $$ = new UserfuncStmt( $1, $3 ); }
+    | userfunc_call ';' { $$ = $1; }
     ;
 
 var_decl:
@@ -154,6 +154,9 @@ function_call:
     STRING '(' function_call_args ')' { $$ = new FuncExpr( $1, $3 ); free($1); }
     ;
 
+userfunc_call:
+    USERF '(' function_call_args ')' { $$ = new UserfuncStmt( $1, $3 ); }
+
 function_call_args:
     /* empty */ { $$ = new FunctionCallArgList(); }
     | expr { $$ = new FunctionCallArgList(); $$->push_back((Expr*)$1); }
@@ -186,6 +189,7 @@ term:
     | STRING { $$ = new VarExpr($1); free($1); }
     | function_call { $$ = $1; }
     | thread { $$ = $1; }
+    | userfunc_call { $$ = $1; } 
     ;
 
 lval:

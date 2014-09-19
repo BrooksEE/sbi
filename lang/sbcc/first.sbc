@@ -28,7 +28,8 @@ void main() {
 
   // call a couple user funcs
   user0 ( (c+3), c-3, 7+5 );
-  user1 ();
+  int tmp = user2 () + 3;
+  debug ( tmp );
 }
 
 // another counter thread

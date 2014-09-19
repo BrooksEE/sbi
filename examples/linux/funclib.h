@@ -13,13 +13,13 @@
 #ifndef _FUNCLIB
 	#define _FUNCLIB
 
-	void debugn(int n, void* rt)
+	void debugn(DTYPE n, void* rt)
 	{
 		printf("DEBUG\t\t0x%02X\t\t%i\n", n, n);
 		return;
 	}
 	
-	void errorn(int n, void* rt)
+	void errorn(DTYPE n, void* rt)
 	{
 		printf("ERROR\t\t0x%02X\t\t%i\n", n, n);
 		return;

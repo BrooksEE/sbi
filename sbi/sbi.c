@@ -444,6 +444,8 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 			if (_getfch()==FOOTER_1) return 1; else return 4;
 		default:
 			_error(SBI_INSTR_ERROR);
+            _error(rd);
+            _error(CUR_PCOUNT-1);
             _ERR("Instruction error 0x%02x at pcount: 0x%02x thread %d\n", rd, CUR_PCOUNT-1, thread->threadid );
 			return SBI_PROG_ERROR;
 			break;

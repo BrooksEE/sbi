@@ -117,10 +117,10 @@
 	typedef DTYPE (*sbi_user_func)(uint8_t, DTYPE*);
 
 	// Put here your debug code
-	typedef void(*debugn_func)(int n, void*);
+	typedef void(*debugn_func)(DTYPE n, void*);
 
 	// Put here your error printing code
-	typedef void(*errorn_func)(int n, void* );
+	typedef void(*errorn_func)(DTYPE n, void* );
     
     // returns the next byte from the source sbi
 	typedef uint8_t (*getfch_func)(PCOUNT p, void*);

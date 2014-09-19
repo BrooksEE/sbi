@@ -574,7 +574,7 @@ sbi_error_t sbi_step(void *rt)
                        // don't skip the next thread 
                        // set it to the previous threadn so the next thread
                        // is not starved.
-                       RT->_sbi_currentthreadn ==
+                       RT->_sbi_currentthreadn =
                         RT->_sbi_currentthreadn == 0 ? 
                             RT->thread_cnt-1 :
                             RT->_sbi_currentthreadn-1;

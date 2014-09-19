@@ -25,21 +25,27 @@
 		return;
 	}
 	
-	void myfunc(DTYPE b[16], void* rt)
+	DTYPE myfunc(uint8_t argc, DTYPE* args)
 	{
-		printf("Custom user function, parameters: %i, %i, %i, %i, %i, %i, %i, %i\n", getval(b[0], b[1], rt), getval(b[2], b[3], rt), getval(b[4], b[5], rt), getval(b[6], b[7], rt), getval(b[8], b[9], rt), getval(b[10], b[11], rt), getval(b[12], b[13], rt), getval(b[14], b[15], rt));
+        int i;
+        printf ("Custom user function, parameters: ");
+        for (i=0;i<argc;++i)
+            printf ( "%d, ", args[i] );
+        printf ( "\n" );
+        return 0;
 	}
 
-    void msgbox(DTYPE b[16], void* rt) {
-        printf ( "msgbox..\n" );
+    DTYPE msgbox(uint8_t argc, DTYPE* args) {
+       printf ( "msgbox .. tmp ignored args.\n" );
+       return 0;
     }
 	
-	void getnum(DTYPE b[16], void* rt)
+	DTYPE getnum(uint8_t argc, DTYPE* args)
 	{
 		int n;
 		printf("Enter a number: ");
 		scanf("%i", &n);
-		setval(b[0], b[1], (DTYPE)n, rt);
+        return n;
 	}
 	
 #endif

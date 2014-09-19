@@ -178,11 +178,10 @@ void _cerror(string command, CERRORTYPE type, sasmc_ctx_t &ctx)
 */
 int pline(string command, int argn, vector<string>& args, sasmc_ctx_t& ctx)
 {
-	uint8_t argt[8];
-	uint32_t argv[8];
+	uint8_t argt[argn];
+	uint32_t argv[argn];
 	int i=0;
 	int p=0;
-    memset(argt,_value8,sizeof(argt)); // default the args to 8 bit consts
 	for (i=0; i<argn; i++)
 	{
 		if ((args[i][0]=='_')&&
@@ -325,15 +324,27 @@ int pline(string command, int argn, vector<string>& args, sasmc_ctx_t& ctx)
         WVAL(0);
 		return 0;
 	}
-	if (command.compare("int")==0)
+	if (command.compare("int")==0
+       )
 	{
 		wb(_istr_int);
-		for (int i=0; i<8; i++)
+        wb(argn);
+        for (int i=0; i<argn; i++)
 		{
             WVAL(i);
 		}
 		return 0;
 	}
+    if (command.compare("intr")==0)
+    {
+       if (argn<1) { cerror(command, WRONGNUM); return 1; }
+       if (!VARORREG(0)) { cerror(command, WRONGTYPE); return 1; }
+       wb(_istr_intr);
+       WVAL(0);
+       wb(argn-1);
+       for (int i=1;i<argn;++i) WVAL(i);
+       return 0;
+    }
     if (command.compare("thread")==0) {
 		if (argn!=2) { cerror(command, WRONGNUM); return 1; }
         if (!VARORREG(1)) { cerror(command, WRONGTYPE); return 1; }
@@ -398,6 +409,7 @@ int sasmc (
 	    instructions["error"] = _istr_error;
 	    instructions["sint"] = _istr_sint;
 	    instructions["int"] = _istr_int;
+        instructions["intr"] = _istr_intr;
         instructions["thread"] = _istr_thread;
         instructions["wait "] = _istr_wait;
 	    instructions["exit"] = _istr_exit;

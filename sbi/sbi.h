@@ -113,8 +113,8 @@
 	
 
 	// User functions
-    // The user must pass the void* to _getval, _setval if used
-	typedef void (*sbi_user_func)(DTYPE [], void* );
+    // params = argc, argv
+	typedef DTYPE (*sbi_user_func)(uint8_t, DTYPE*);
 
 	// Put here your debug code
 	typedef void(*debugn_func)(int n, void*);
@@ -142,10 +142,5 @@
 	sbi_error_t sbi_interrupt(const INTERRUPT id, void*);
     void sbi_cleanup(void*); // free resources after program run
 
-    // accessor functions can be used
-    // in user_function context to get/set parameters.
-	DTYPE getval(uint8_t type, DTYPE val, void*);
-	unsigned int setval(uint8_t type, uint8_t num, DTYPE val, void*);
-	
 	
 #endif

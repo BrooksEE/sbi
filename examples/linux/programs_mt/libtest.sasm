@@ -10,8 +10,8 @@ jump 2 0; // jump to main
 label 1;
 
 sint 2 ; Select user function number 2 (get number)
-int _t0 ; Call selected user function with t0 as parameter
-int _t1 ; Call selected user function with t1 as parameter
+intr _t0 ; Call selected user function with t0 as parameter
+intr _t1 ; Call selected user function with t1 as parameter
 
 add _t0 _t1 _t2 ; t2 = t0 + t1
 div _t2 2 _t3 ; t3 = t2 / 2

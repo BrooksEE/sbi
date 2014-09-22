@@ -10,7 +10,6 @@
 
 #include <stdlib.h>
 #include <string.h> // memset
-#include <stdbool.h>
 
 #ifdef TRACE 
  #include <stdio.h>
@@ -386,8 +385,7 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
         case _istr_intr:
             {
                 // NOTE should parameters be pushed on the stack instead?
-                bool ret=rd==_istr_intr; 
-                if (ret) {
+                if (rd==_istr_intr) {
                     var1t=_getfch();
                     var1=_getfch();
                 }
@@ -404,7 +402,7 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
                     pvals[i] = _getval(var2t,var2,thread);
                 }
 			    DTYPE r = RT->ctx->sbi_user_funcs[thread->_userfid](argc,pvals);
-                if (ret) {
+                if (rd==_istr_intr) {
                     _setval(var1t,var1,r,thread);
                 }
                 if (pvals) free(pvals);
@@ -502,14 +500,14 @@ sbi_error_t _sbi_loadthread(SBITHREAD* thread, sbi_runtime_t* rt)
 void _sbi_removethread(SBITHREAD* thread, sbi_runtime_t* rt)
 {
     int i;
-    bool remove=false;
+    int remove=0;
     for ( i=0; i< rt->thread_cnt; ++i ) {
         if (rt->_sbi_threads[i] == thread) {
             free(thread);
-            remove=true;
+            remove=1;
             break;
-        }
     }
+        }
     if (remove) {
        for ( ; i< rt->thread_cnt-1; ++i) {
          rt->_sbi_threads[i] = rt->_sbi_threads[i+1];

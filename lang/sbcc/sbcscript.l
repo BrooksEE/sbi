@@ -20,7 +20,10 @@ int line_num = 1;
 int            { return VAR; }
 void           { return VOID; }
 thread         { return THREAD; }
+stop           { return STOP; }
+is_running     { return IS_RUNNING; }
 while          { return WHILE; }
+exit           { return EXIT; }
 if             { return IF; }
 else           { return ELSE; }
 return         { return RETURN; }

@@ -30,3 +30,6 @@ $(SBI): $(wildcard ../../examples/linux/*.c ../../examples/linux/*.h )
 
 run: first.sbi $(SBI)
 	$(SBI) $<
+
+clean:
+	rm sbcc *.sbi *.sasm

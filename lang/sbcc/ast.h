@@ -187,6 +187,20 @@ class WaitStmt : public Node {
 
 };
 
+class StopStmt : public Node {
+  public:
+  std::string m_stop;
+  StopStmt ( const char* stop ) : m_stop(stop) {}
+  void genCode(CodeCtx &);
+};
+
+class ExitStmt : public Node {
+  public:
+  ExitStmt() {}
+  void genCode(CodeCtx &);
+};
+
+
 // expressions
 std::ostream& operator << (std::ostream &o, const Expr &e);
 
@@ -257,6 +271,15 @@ class ThreadExpr : public Expr {
   std::string m_name;
   ThreadExpr(const char* name) : m_name(name) {}
   void stream ( std::ostream &o) const { o << "thread (" << m_name << ")"; }
+  void genCode(CodeCtx &);
+  void evalTo(CodeCtx &, const std::string &);
+};
+
+class RunningExpr : public Expr {
+  public:
+  std::string m_var;
+  RunningExpr( const char* var) : m_var(var) {}
+  void stream( std::ostream &o) const { o << "is_running (" << m_var << ")"; }
   void genCode(CodeCtx &);
   void evalTo(CodeCtx &, const std::string &);
 };

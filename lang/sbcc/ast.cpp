@@ -332,7 +332,7 @@ void WhileStmt::genCode(CodeCtx &ctx) {
   emit ( ctx, "label %d\t\t\t; while\n",whileStart ); 
   m_expr->evalTo(ctx, "_r0");
   emit ( ctx, "cmpjump 0 _r0 %d 0\t\t\t; if 0 jump to end while\n", whileEnd );
-  m_block->genCode(ctx);
+  if (m_block) m_block->genCode(ctx);
   emit ( ctx, "jump %d 0\t\t\t; loop\n", whileStart );
   emit ( ctx, "label %d\t\t\t; end while\n", whileEnd );
 }
@@ -344,15 +344,15 @@ void IfStmt::genCode(CodeCtx &ctx) {
  int ifEnd = CTX->NextLabel(); 
  m_eval->evalTo(ctx,"_r0");
  emit ( ctx, "cmpjump _r0 0 %d 0\t\t\t; false -> else\n", ifEnd );
- m_true->genCode(ctx);
+ if (m_true) m_true->genCode(ctx);
  int elseEnd=0; // unused unless else
- if ( m_false->m_stmts->size() ) {
+ if ( m_false && m_false->m_stmts->size() ) {
     elseEnd = CTX->NextLabel();
     // still in the if block so jump to the end
     emit ( ctx, "jump %d 0\t\t\t; skip else\n", elseEnd );
  }
  emit ( ctx, "label %d\t\t\t; end if\n", ifEnd );
- if (m_false->m_stmts->size() ) {
+ if (m_false && m_false->m_stmts->size() ) {
     DEBUG ( cout << " else " );
     m_false->genCode(ctx);
     emit ( ctx, "label %d\t\t\t; end else\n", elseEnd );
@@ -382,6 +382,18 @@ void WaitStmt::genCode(CodeCtx &ctx) {
   string loc = CTX->FindVarLoc(m_wait);
   emit (ctx, "wait %s\t\t\t; wait %s\n", loc.c_str(), m_wait.c_str() );
 }
+
+void StopStmt::genCode(CodeCtx &ctx) {
+  DEBUG ( cout << "stop ( " << m_stop << " ) ");
+  string loc = CTX->FindVarLoc(m_stop);
+  emit( ctx, "stop %s\t\t\t; stop %s\n", loc.c_str(), m_stop.c_str() );
+}
+
+void ExitStmt::genCode(CodeCtx &ctx) {
+  DEBUG ( cout << "exit()" );
+  emit ( ctx, "exit\t\t\t; exit program\n" );
+}
+
 
 // expressions
 void Expr::genCode(CodeCtx &ctx) {
@@ -533,4 +545,14 @@ void ThreadExpr::evalTo(CodeCtx &ctx, const string &target) {
    emit ( ctx, "thread %d %s\t\t\t; start thread %s\n", l, target.c_str(), m_name.c_str() );
 }
 
+void RunningExpr::genCode(CodeCtx &ctx) {
+  DEBUG ( cout << "is_running ( " << m_var << " ) ");
+  evalTo(ctx,"_r0");
+}
+
+void RunningExpr::evalTo(CodeCtx &ctx, const string &target) {
+  string loc = CTX->FindVarLoc(m_var);
+  emit( ctx, "alive %s %s\t\t\t; is_running %s\n", loc.c_str(), target.c_str(), m_var.c_str() );
+}
+ 
 

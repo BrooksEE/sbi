@@ -31,8 +31,8 @@ void yyerror(const char *s);
     Stmts *stmts;
 }
 
-%token FUNCTION THREAD VAR DEBUG ERROR WAIT
-%token WHILE IF ELSE RETURN VOID
+%token FUNCTION THREAD VAR DEBUG ERROR WAIT EXIT
+%token WHILE IF ELSE RETURN VOID STOP IS_RUNNING
 %token EQOP NEOP GE LE
 
 %token <ival> INT USERF
@@ -40,7 +40,7 @@ void yyerror(const char *s);
 
 
 %type<node> sbcscript stmt code_block function_decl assign expr term return deberr
-%type<node> gvar_decl var_decl function_call userfunc_call while if ifblock elseblock wait thread
+%type<node> gvar_decl var_decl function_call userfunc_call while if ifblock elseblock wait thread stop is_running
 %type<globals> globals
 %type<functions> function_list
 %type<funcargs> function_decl_args 
@@ -105,9 +105,12 @@ stmt:
     | if { $$ = $1; }
     | return { $$ = $1; }
     | deberr { $$ = $1; }
-    | wait { $$ = $1; }
+    | wait ';' { $$ = $1; }
     | thread ';' { $$ = $1; }
     | userfunc_call ';' { $$ = $1; }
+    | stop ';' { $$=$1; }
+    | is_running ';' { $$=$1; }
+    | EXIT '(' ')' ';' { $$= new ExitStmt(); }
     ;
 
 var_decl:
@@ -147,7 +150,15 @@ thread:
     ;
 
 wait:
-    WAIT '(' STRING ')' ';' { $$ = new WaitStmt($3); free($3); }
+    WAIT '(' STRING ')' { $$ = new WaitStmt($3); free($3); }
+    ;
+
+stop:
+    STOP '(' STRING ')' { $$ = new StopStmt($3); free($3); } 
+    ;
+
+is_running:
+    IS_RUNNING '(' STRING ')' { $$ = new RunningExpr($3); free ($3); }
     ;
 
 function_call:
@@ -190,6 +201,7 @@ term:
     | function_call { $$ = $1; }
     | thread { $$ = $1; }
     | userfunc_call { $$ = $1; } 
+    | is_running { $$ = $1; }
     ;
 
 lval:

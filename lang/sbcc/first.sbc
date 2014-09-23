@@ -11,10 +11,14 @@ int math(int a, int b, int c) {
    return c/(a+b);
 }
 
+void somethread() {
+  while (1);
+}
+
 // main
 void main() {
   int tId = thread(thread2);
-
+  int tSome = thread(somethread);
   wait (tId);
 
 
@@ -30,6 +34,12 @@ void main() {
   user0 ( (c+3), c-3, 7+5 );
   int tmp = user2 () + 3;
   debug ( tmp );
+
+  if (is_running(tSome)) {
+    stop(tSome);
+    debug(0xaa); // killed a thread
+  }
+
 }
 
 // another counter thread

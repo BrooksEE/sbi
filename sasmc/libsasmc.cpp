@@ -360,6 +360,21 @@ int pline(string command, int argn, vector<string>& args, sasmc_ctx_t& ctx)
         WVAL(0);
         return 0;
     }
+    if (command.compare("alive")==0) {
+        if (argn!=2) { cerror(command, WRONGNUM); return 1; }
+        if (!VARORREG(0) || !VARORREG(1)) { cerror(command, WRONGTYPE); return 1; }
+        wb(_istr_alive);
+        WVAL(0);
+        WVAL(1);
+        return 0;
+    }
+    if (command.compare("stop")==0) {
+        if (argn!=1) { cerror(command,WRONGNUM); return 1; }
+        if (!VARORREG(0)) { cerror(command,WRONGTYPE); return 1; }
+        wb(_istr_stop);
+        WVAL(0);
+        return 0;
+    }
 	if (command.compare("exit")==0)
 	{
 		if (argn!=0) { cerror(command, WRONGNUM); return 1; }
@@ -412,6 +427,8 @@ int sasmc (
         instructions["intr"] = _istr_intr;
         instructions["thread"] = _istr_thread;
         instructions["wait "] = _istr_wait;
+        instructions["alive"] = _istr_alive;
+        instructions["stop"] = _istr_stop;
 	    instructions["exit"] = _istr_exit;
     }
 

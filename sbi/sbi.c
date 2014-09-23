@@ -28,22 +28,11 @@ typedef enum
 	RUNNING
 } SBITHREADSTATUS;
 
-typedef enum
-{
-	NOERROR = 0,
-	REACHEDEND,
-	EXITED,
-	WRONGINSTR,
-	WRONGBYTE,
-	USERERROR
-} SBITHREADERROR;
-
 typedef struct
 {
-    uint8_t threadid;
+    DTYPE threadid;
     PCOUNT p;
 	SBITHREADSTATUS status;
-	SBITHREADERROR _lasterror;
 	RETADDR _returnaddresses[RETURNADDRESSESN];
     unsigned int raddr_cnt;
 	USERFUNCID _userfid;
@@ -69,7 +58,7 @@ typedef struct
     	SBITHREADNUM _sbi_currentthreadn;
     #endif
     unsigned int thread_cnt;
-    uint8_t new_threadid;
+    DTYPE new_threadid;
 } sbi_runtime_t;
 
 
@@ -78,12 +67,6 @@ sbi_error_t _sbi_new_thread_at(PCOUNT, sbi_runtime_t*);
 SBITHREAD* _sbi_createthread(PCOUNT, sbi_runtime_t*);
 sbi_error_t _sbi_loadthread(SBITHREAD* thread, sbi_runtime_t*);
 void _sbi_removethread(SBITHREAD* thread, sbi_runtime_t*);
-SBITHREAD* _sbi_getthread(SBITHREADNUM n);
-void _sbi_startthread(SBITHREAD* thread);
-void _sbi_stopthread(SBITHREAD* thread);
-SBITHREADSTATUS _sbi_getthreadstatus(SBITHREAD* thread);
-SBITHREADERROR _sbi_getthreaderror(SBITHREAD* thread);
-
 
 // Variables, labels and subroutines
 // easy access
@@ -198,7 +181,6 @@ sbi_error_t sbi_begin(void *rt) {
 	if (_getfch()!=SEPARATOR) return SBI_HEADER_ERROR;
 
 	int ret = _sbi_loadthread(thread, RT);
-    if (!ret) _sbi_startthread(thread);
     return ret;
 
 }
@@ -206,7 +188,6 @@ sbi_error_t sbi_begin(void *rt) {
 sbi_error_t _sbi_new_thread_at(PCOUNT p, sbi_runtime_t* rt) {
     SBITHREAD *t = _sbi_createthread(p, rt);
     int ret = _sbi_loadthread(t, rt);
-    if (!ret) _sbi_startthread(t);
     return ret;
 }
 
@@ -435,11 +416,42 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
                 }
             }
             break;
+        case _istr_alive:
+            {
+            var1t = _getfch();
+            var1 = _getfch();
+            var2t = _getfch();
+            var2 = _getfch();
+            DTYPE tId = _getval(var1t,var1,thread);
+            DTYPE val = 0; // not running
+            for (i=0;i<rt->thread_cnt;++i) {
+               if (rt->_sbi_threads[i]->threadid == tId &&
+                   rt->_sbi_threads[i]->status == RUNNING) {
+                   val=1;
+                   break;
+               }
+            }
+            _setval(var2t,var2,val,thread);
+            }
+            break;
+        case _istr_stop:
+            {
+            var1t = _getfch();
+            var1 = _getfch();
+            DTYPE tId = _getval(var1t,var1,thread);
+            for (i=0;i<rt->thread_cnt;++i) {
+               if (rt->_sbi_threads[i]->threadid == tId) {
+                  rt->_sbi_threads[i]->status = STOPPED;
+                  break;
+               }
+            }
+            }
+            break;
 		case _istr_exit:
 			return SBI_PROG_EXIT;
 			break;
 		case FOOTER_0:
-			if (_getfch()==FOOTER_1) return 1; else return 4;
+			if (_getfch()==FOOTER_1) return SBI_PROG_EOF; else return SBI_INSTR_ERROR;
 		default:
 			_error(SBI_INSTR_ERROR);
             _error(rd);
@@ -492,6 +504,7 @@ sbi_error_t _sbi_loadthread(SBITHREAD* thread, sbi_runtime_t* rt)
     do {
       thread->threadid = ++rt->new_threadid;
     } while (!thread->threadid); // ids wrap but skip 0
+    thread->status=RUNNING;
 	
 	// Done
 	return SBI_NOERROR;
@@ -525,6 +538,8 @@ void _sbi_removethread(SBITHREAD* thread, sbi_runtime_t* rt)
 sbi_error_t sbi_step(void *rt)
 {
     unsigned int ret=0;
+    if (!rt) return SBI_INVALID_RT;
+    if (!RT->thread_cnt) return SBI_NOT_RUNNING;
 	#if !_SBI_MULTITHREADING_EQUALTIME
         // TODO fix
 		//int c = 0;
@@ -559,27 +574,33 @@ sbi_error_t sbi_step(void *rt)
 	                CUR_PCOUNT = RT->_interrupts[id]; // Set the program counter to interrupt's address
                 }
 				ret = _sbi_step_internal(thread,rt);
-				if (ret)
-				{
-                    _TRACE ( "Thread (%d) exit: %d\n", thread->threadid, ret );
-                    _sbi_removethread(thread,RT);
-                    thread=NULL;
-                    if (ret >= SBI_PROG_EXIT) {
-                       // program exit
-                       int i;
-                       for ( i=0;i<RT->thread_cnt;++i ) _sbi_stopthread(RT->_sbi_threads[i]); 
-                    } else {
-                       // don't skip the next thread 
-                       // set it to the previous threadn so the next thread
-                       // is not starved.
-                       RT->_sbi_currentthreadn =
-                        RT->_sbi_currentthreadn == 0 ? 
-                            RT->thread_cnt-1 :
-                            RT->_sbi_currentthreadn-1;
-                    }
-				}
+            } else if (thread->status == STOPPED) {
+                ret = SBI_THREAD_EXIT;
+            }
+
+			if (ret)
+			{
+                _TRACE ( "Thread (%d) exit: %d\n", thread->threadid, ret );
+                _sbi_removethread(thread,RT);
+                thread=NULL;
+                if (ret >= SBI_PROG_EXIT) {
+                   // program exit
+                   int i;
+                   for ( i=0;i<RT->thread_cnt;++i ) RT->_sbi_threads[i]->status = STOPPED;
+                } else {
+                   // don't skip the next thread 
+                   // set it to the previous threadn so the next thread
+                   // is not starved.
+                   RT->_sbi_currentthreadn =
+                    RT->_sbi_currentthreadn == 0 ? 
+                        RT->thread_cnt-1 :
+                        RT->_sbi_currentthreadn-1;
+                }
 			}
-		}
+		} else {
+          // should not get this
+          _error(SBI_INTERNAL_ERROR);
+        }
 		RT->_sbi_currentthreadn++;
 		if (RT->_sbi_currentthreadn > (RT->thread_cnt - 1)) RT->_sbi_currentthreadn = 0;
 	#endif
@@ -599,26 +620,10 @@ unsigned int sbi_running(void* rt)
 	return c;
 }
 
-void _sbi_startthread(SBITHREAD* thread)
-{
-	thread->status = RUNNING;
-}
-
 void _sbi_stopthread(SBITHREAD* thread)
 {
 	thread->status = STOPPED;
 }
-
-SBITHREADSTATUS _sbi_getthreadstatus(SBITHREAD* thread)
-{
-	return thread->status;
-}
-
-SBITHREADERROR _sbi_getthreaderror(SBITHREAD* thread)
-{
-	return thread->_lasterror;
-}
-
 
 sbi_error_t sbi_interrupt(const unsigned int id, void* rt)
 {

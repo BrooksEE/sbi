@@ -98,6 +98,7 @@
       SBI_NOERROR,
       SBI_THREAD_EXIT, // normal thread exit
       SBI_PROG_EXIT,  // normal exit via exit command
+      SBI_PROG_EOF, // program exited no exit command
       SBI_INVALID_RT, // void* for context is null 
       SBI_ALLOC_ERROR, // unable to allocate memory
       SBI_CTX_ERROR,   // uninitialized function in context
@@ -108,7 +109,9 @@
       SBI_STACK_UNDERFLOW, // pop called when stack is empty
       SBI_INSTR_ERROR, // unrecognized instruction
       SBI_THREAD_MAX, // attempt to allocate more than max threads
-      SBI_INT_LOST // more interrupts queued than INTQUEUE_SIZE
+      SBI_NOT_RUNNING, // returned by sbi step if all threads have exited.
+      SBI_INT_LOST, // more interrupts queued than INTQUEUE_SIZE
+      SBI_INTERNAL_ERROR // byte interpreter interpreter error.
     } sbi_error_t;
 	
 

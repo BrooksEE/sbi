@@ -1,0 +1,54 @@
+
+; main
+; start several threads
+; see if they are alive
+; stop the ones that are still
+
+move _t0 0 ; global variable counter
+thread 1 _r0; // thread 1
+thread 2 _r1; // thread 2
+thread 3 _r2; // thread 3
+
+; wait for threads 1 and 2 to exit
+; but use alive command instead of wait
+; allows us to count in the mean time
+move _r3 0; // _r3 for counter
+label 5:
+; while (alive 1 or alive 2) {
+alive _r0 _r4;
+alive _r1 _r5;
+add  _r5 _r4 _r4 ; add to see if any are not 0
+cmpjump _r4 0 6 0 ; end loop if none were 0
+incr _r3 ; number of times around loop threads were still running.
+jump 5 0; 
+label 6:   ;} // end while 
+
+; stop thread 3
+stop _r3
+debug _r3; how many times in this loop before the other two threads exited.
+debug _t0; how many times did the counter thread count.
+exit;
+
+label 1:
+; count to 50
+move _r0 0
+label 4:
+incr _r0;  _r0++
+low _r0 50 _r1; _r0<50 ->_r1
+cmpjump _r1 1 4 0 ; // jump to 4 if _r1==1
+ret ; // end func
+
+label 2:
+; count to 90 
+move _r0 0
+label 7:
+incr _r0;  _r0++
+low _r0 90 _r1; _r0<90 ->_r1
+cmpjump _r1 1 7 0 ; // jump to 4 if _r1==1
+ret ; // end func
+
+label 3:
+; just go forever counting
+; until someone decides to kill us.
+incr _t0;
+jump 3 0; // while (1);

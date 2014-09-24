@@ -129,6 +129,38 @@ class FuncCallStmt : public Node {
   void genCode(CodeCtx &);
 };
 
+class ForStmt : public Node {
+  public:
+  Node *m_begin;
+  Expr *m_cond;
+  Node *m_step;
+  Block *m_block;
+  ForStmt( Node *begin, Expr *cond, Node *step, Block *block ):
+    m_begin(begin),
+    m_cond(cond),
+    m_step(step),
+    m_block(block) {}
+  ForStmt( Node *begin, Expr *cond, Node *step, Node *stmt ):
+    m_begin(begin),
+    m_cond(cond),
+    m_step(step) {
+    m_block = new Block();
+    m_block->m_stmts->push_back(stmt);
+  }
+  ForStmt( Node *begin, Expr *cond, Node *step):
+    m_begin(begin),
+    m_cond(cond),
+    m_step(step),
+    m_block(NULL) {}
+  ~ForStmt() {
+    if (m_begin) delete m_begin;
+    if (m_cond) delete m_cond;
+    if (m_step) delete m_step;
+    if (m_block) delete m_block;
+  }
+
+  void genCode(CodeCtx &ctx);
+};
 
 class WhileStmt : public Node {
   public:
@@ -144,8 +176,14 @@ class WhileStmt : public Node {
      }
   WhileStmt ( Expr* expr ) : 
      m_expr(expr) , m_block(NULL) {}
-  ~WhileStmt() { delete m_expr; delete m_block; }
+  ~WhileStmt() { delete m_expr; if (m_block) delete m_block; }
   void genCode(CodeCtx &);
+};
+
+class DowhileStmt : public WhileStmt {
+    public:
+    DowhileStmt ( Block *block, Expr* expr ) : WhileStmt ( expr, block ) {}
+    void genCode(CodeCtx &);
 };
 
 class IfStmt : public Node {

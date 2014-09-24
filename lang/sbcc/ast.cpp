@@ -337,6 +337,45 @@ void WhileStmt::genCode(CodeCtx &ctx) {
   emit ( ctx, "label %d\t\t\t; end while\n", whileEnd );
 }
 
+void ForStmt::genCode(CodeCtx &ctx) { 
+    DEBUG ( "for (...) {" );
+   
+   CTX->PushVarCtx();
+   if (m_begin) m_begin->genCode(ctx); 
+
+   int forStart = CTX->NextLabel();
+   emit ( ctx, "label %d\t\t\t; for ...\n", forStart );
+
+   if (m_block) m_block->genCode(ctx);
+
+   if (m_step) m_step->genCode(ctx);
+
+   int forEnd = CTX->NextLabel();
+
+   if (m_cond) {
+       m_cond->evalTo(ctx, "_r0");
+       emit ( ctx, "cmpjump _r0 0 %d 0\t\t\t; for condition\n", forEnd );
+   }
+   emit ( ctx, "jump %d 0\t\t\t; loop\n", forStart );
+   emit ( ctx, "label %d:\t\t\t; end for\n", forEnd );
+   CTX->PopVarCtx();
+
+   DEBUG ( "} // end for" );
+        
+}
+
+void DowhileStmt::genCode(CodeCtx &ctx) {
+ DEBUG ( "do {" );
+ int whileStart = CTX->NextLabel();
+ int whileEnd = CTX->NextLabel();
+ emit ( ctx, "label %d\t\t\t; do ", whileStart );
+ m_block->genCode(ctx);
+ m_expr->evalTo(ctx,"_r0");
+ emit ( ctx, "cmpjump 0 _r0 %d 0\t\t\t; if 0 jump to end while\n", whileEnd );
+ emit ( ctx, "jump %d 0\t\t\t; loop\n", whileStart );
+ emit ( ctx, "label %d\t\t\t; end do..while\n", whileEnd );
+}
+
 void IfStmt::genCode(CodeCtx &ctx) {
  DEBUG ( cout << "If (" << *m_eval << ") " );
  int ifStart = CTX->NextLabel();

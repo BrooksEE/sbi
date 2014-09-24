@@ -12,7 +12,9 @@ int math(int a, int b, int c) {
 }
 
 void somethread() {
-  while (1);
+  int j=0;
+  while (j<10) j=j+1;
+  for (; j>3; j=j+1 ) {} // repeat making j bigger.
 }
 
 // main

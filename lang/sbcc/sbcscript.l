@@ -22,7 +22,9 @@ void           { return VOID; }
 thread         { return THREAD; }
 stop           { return STOP; }
 is_running     { return IS_RUNNING; }
+do             { return DO; }
 while          { return WHILE; }
+for            { return FOR; }
 exit           { return EXIT; }
 if             { return IF; }
 else           { return ELSE; }

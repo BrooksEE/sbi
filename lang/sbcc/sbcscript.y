@@ -32,7 +32,7 @@ void yyerror(const char *s);
 }
 
 %token FUNCTION THREAD VAR DEBUG ERROR WAIT EXIT
-%token WHILE IF ELSE RETURN VOID STOP IS_RUNNING
+%token WHILE IF ELSE RETURN VOID STOP IS_RUNNING DO FOR
 %token EQOP NEOP GE LE
 
 %token <ival> INT USERF
@@ -40,7 +40,8 @@ void yyerror(const char *s);
 
 
 %type<node> sbcscript stmt code_block function_decl assign expr term return deberr
-%type<node> gvar_decl var_decl function_call userfunc_call while if ifblock elseblock wait thread stop is_running
+%type<node> gvar_decl var_decl function_call userfunc_call while if ifblock elseblock wait thread stop is_running 
+%type<node> dowhile for for_expr for_begin for_step
 %type<globals> globals
 %type<functions> function_list
 %type<funcargs> function_decl_args 
@@ -98,13 +99,15 @@ stmts:
     ;
 
 stmt:
-    assign { $$ = $1; }
-    | var_decl { $$ = $1; }
+    assign ';' { $$ = $1; }
+    | var_decl ';' { $$ = $1; }
     | while { $$ = $1; }
+    | dowhile { $$ = $1; }
+    | for { $$ = $1; }
     | function_call ';' { $$ = new FuncCallStmt((FuncExpr*)$1); }
     | if { $$ = $1; }
-    | return { $$ = $1; }
-    | deberr { $$ = $1; }
+    | return ';' { $$ = $1; }
+    | deberr ';' { $$ = $1; }
     | wait ';' { $$ = $1; }
     | thread ';' { $$ = $1; }
     | userfunc_call ';' { $$ = $1; }
@@ -114,12 +117,33 @@ stmt:
     ;
 
 var_decl:
-    VAR STRING ';' { $$ = new VarDec($2); free($2); }
-    | VAR STRING '=' expr ';' { $$ = new VarDec( $2, (Expr*)$4); free($2); }
+    VAR STRING { $$ = new VarDec($2); free($2); }
+    | VAR STRING '=' expr { $$ = new VarDec( $2, (Expr*)$4); free($2); }
     ;
 
 assign:
-    lval '=' expr ';' { $$ = new AssignStmt ( $1, (Expr*)$3 ); free($1); }
+    lval '=' expr { $$ = new AssignStmt ( $1, (Expr*)$3 ); free($1); }
+    ;
+
+for:
+    FOR '(' for_begin';' for_expr ';' for_step ')' code_block { $$ = new ForStmt ( $3, (Expr*)$5, (Expr*)$7, (Block*)$9 ); }
+    | FOR '(' for_begin ';' for_expr ';' for_step ')' stmt { $$ = new ForStmt ( $3, (Expr*)$5, (Expr*)$7, $9 ); }
+    | FOR '(' for_begin ';' for_expr ';' for_step ')' ';' { $$ = new ForStmt ( $3, (Expr*)$5, (Expr*)$7 ); }
+    ;
+
+for_begin:
+    /* none */ {$$=NULL;}
+    | var_decl {$$=$1;}
+    | assign { $$=$1; }
+    ;
+
+for_expr:
+    /* none */ {$$=NULL; }
+    | expr { $$ = $1; }
+    ;
+for_step:
+    /* none */ {$$=NULL}
+    | assign { $$=$1; }
     ;
 
 while:
@@ -127,6 +151,9 @@ while:
     | WHILE '(' expr ')' stmt { $$ = new WhileStmt ( (Expr*)$3, $5 ); }
     | WHILE '(' expr ')' ';' { $$ = new WhileStmt ( (Expr*)$3 ); }
     ;
+
+dowhile:
+    DO code_block WHILE '(' expr ')' ';' { $$ = new DowhileStmt ( (Block*)$2, (Expr*)$5 ); }
 
 if:
     ifblock { $$=$1; }
@@ -142,8 +169,8 @@ elseblock:
 
 
 return:
-    RETURN ';' { $$ = new ReturnStmt(NULL); }
-    | RETURN expr ';' { $$ = new ReturnStmt((Expr*)$2); }
+    RETURN { $$ = new ReturnStmt(NULL); }
+    | RETURN expr { $$ = new ReturnStmt((Expr*)$2); }
 
 thread:
     THREAD '(' STRING ')' { $$ = new ThreadExpr($3); free($3); }
@@ -175,8 +202,8 @@ function_call_args:
     ;
 
 deberr:
-    DEBUG '(' expr ')' ';' { $$ = new DebugStmt ( "debug", (Expr*)$3 ); }
-    | ERROR '(' expr ')' ';' { $$ = new DebugStmt ( "error", (Expr*)$3 ); } 
+    DEBUG '(' expr ')' { $$ = new DebugStmt ( "debug", (Expr*)$3 ); }
+    | ERROR '(' expr ')' { $$ = new DebugStmt ( "error", (Expr*)$3 ); } 
     ;
 
 expr:

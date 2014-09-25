@@ -17,8 +17,8 @@ int line_num = 1;
 <COMMENT>\n    { ++line_num; BEGIN(INITIAL); }
 <COMMENT>.     ;
 [ \t]          ;
-int            { return VAR; }
-void           { return VOID; }
+int            { yylval.ival=1; return VAR; }
+void           { yylval.ival=0; return VOID; }
 thread         { return THREAD; }
 stop           { return STOP; }
 is_running     { return IS_RUNNING; }

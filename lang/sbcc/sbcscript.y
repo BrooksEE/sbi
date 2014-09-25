@@ -23,31 +23,26 @@ void yyerror(const char *s);
     int ival;
     char *sval;
     Node *node;
-    Globals *globals;
-    FunctionList *functions;
     VarDec *vardec;
     FunctionArgList *funcargs;
     FunctionCallArgList *funccallargs;
     Stmts *stmts;
 }
 
-%token FUNCTION THREAD VAR DEBUG ERROR WAIT EXIT
-%token WHILE IF ELSE RETURN VOID STOP IS_RUNNING DO FOR
+%token THREAD DEBUG ERROR WAIT EXIT
+%token WHILE IF ELSE RETURN STOP IS_RUNNING DO FOR
 %token EQOP NEOP GE LE
 
-%token <ival> INT USERF
+%token <ival> INT VAR VOID USERF
 %token <sval> STRING
 
 
 %type<node> sbcscript stmt code_block function_decl assign expr term return deberr
 %type<node> gvar_decl var_decl function_call userfunc_call while if ifblock elseblock wait thread stop is_running 
 %type<node> dowhile for for_expr for_begin for_step
-%type<globals> globals
-%type<functions> function_list
 %type<funcargs> function_decl_args 
 %type<funccallargs> function_call_args
 %type<stmts> stmts
-%type<ival> rettype
 %type<sval> lval
 
 %left '<' '>' LE GE EQOP NEOP
@@ -56,12 +51,10 @@ void yyerror(const char *s);
 
 %%
 sbcscript:
-    globals function_list { gProgram = new Program ( $1, $2 ); }
-    ;
-globals:
-    /* empty */ { $$=new Globals(); }
-    |globals gvar_decl { $1->push_back((VarDec*)$2); }
-    | gvar_decl { $$=new Globals(); $$->push_back( (VarDec*)$1 ); }
+    sbcscript function_decl { gProgram->m_functions->push_back((Function*)$2); }
+    | sbcscript gvar_decl { gProgram->m_globals->push_back((VarDec*)$2); }
+    | gvar_decl { gProgram = new Program(); gProgram->m_globals->push_back((VarDec*)$1); }
+    | function_decl { gProgram = new Program(); gProgram->m_functions->push_back((Function*)$1); }
     ;
 
 gvar_decl:
@@ -69,24 +62,15 @@ gvar_decl:
     | VAR STRING '=' INT ';' { IntExpr *v = new IntExpr($4); $$ = new VarDec($2, v); free($2); }
     ;
 
-function_list: 
-    function_list function_decl { $1->push_back((Function*)$2); }
-    | function_decl { $$ = new FunctionList(); $$->push_back((Function*)$1); }
-    | /* empty */ { $$ = new FunctionList(); }
-    ;
-
 function_decl:
-    rettype STRING '(' function_decl_args ')' code_block { $$=new Function($1, $2, $4, (Block*)$6); free($2); }
+    VAR STRING '(' function_decl_args ')' code_block { $$=new Function($1, $2, $4, (Block*)$6); free($2); }
+    | VOID STRING '(' function_decl_args ')' code_block { $$=new Function($1, $2, $4, (Block*)$6); free($2); }
+    ;
 
 function_decl_args:
     /* none */ { $$ = new FunctionArgList(); }
     | VAR STRING { $$ = new FunctionArgList(); $$->push_back($2); free($2); }
     | function_decl_args ',' VAR STRING {$$->push_back($4); free($4); }
-    ;
-
-rettype:
-    VAR { $$ = 1; }
-    | VOID { $$ = 0; }
     ;
 
 code_block:
@@ -142,7 +126,7 @@ for_expr:
     | expr { $$ = $1; }
     ;
 for_step:
-    /* none */ {$$=NULL}
+    /* none */ {$$=NULL; }
     | assign { $$=$1; }
     ;
 

@@ -17,6 +17,8 @@ void somethread() {
   for (; j>3; j=j+1 ) {} // repeat making j bigger.
 }
 
+int ignore;
+
 // main
 void main() {
   int tId = thread(thread2);

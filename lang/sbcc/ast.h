@@ -60,9 +60,9 @@ class Program : public Node {
   public:
   Globals *m_globals;
   FunctionList *m_functions;
-  Program( Globals *g, FunctionList *f ) : 
-    m_globals(g), 
-    m_functions(f) {}
+  Program( ) : 
+    m_globals(new Globals()), 
+    m_functions(new FunctionList) {}
   ~Program();
 
   void genCode(CodeCtx &);

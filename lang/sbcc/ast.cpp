@@ -230,7 +230,12 @@ void Program::genCode(CodeCtx &ctx) {
 
 
 void VarDec::genCode(CodeCtx &ctx) {
-  DEBUG(cout << "var: " << m_name << '=' << *m_value << endl);
+  if (CTX->debug) {
+    cout << "\t\t\t; " << m_name ;
+    if (m_value) 
+        cout << *m_value;
+    cout << ":" << endl;
+  }
   CTX->AddVar(m_name);
   
   string loc = CTX->FindVarLoc(m_name);

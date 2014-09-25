@@ -104,7 +104,7 @@ stmt:
     | while { $$ = $1; }
     | dowhile { $$ = $1; }
     | for { $$ = $1; }
-    | function_call ';' { $$ = new FuncCallStmt((FuncExpr*)$1); }
+    | function_call ';' { $$ = $1; }
     | if { $$ = $1; }
     | return ';' { $$ = $1; }
     | deberr ';' { $$ = $1; }

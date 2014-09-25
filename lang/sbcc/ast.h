@@ -120,15 +120,6 @@ class AssignStmt : public Node {
   void genCode(CodeCtx &);
 };
 
-class FuncExpr;
-class FuncCallStmt : public Node {
-  public:
-  FuncExpr *m_call;
-  FuncCallStmt( FuncExpr* call) : m_call(call) {}
-  ~FuncCallStmt();
-  void genCode(CodeCtx &);
-};
-
 class ForStmt : public Node {
   public:
   Node *m_begin;
@@ -293,6 +284,7 @@ class FuncExpr : public Expr {
   ~FuncExpr();
   void stream ( std::ostream &o) const ;
   void evalTo(CodeCtx &, const std::string &);
+  void genCode(CodeCtx & );
 };
 
 class UserfuncStmt : public FuncExpr {

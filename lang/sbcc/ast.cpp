@@ -319,11 +319,6 @@ void UserfuncStmt::evalTo(CodeCtx &ctx, const std::string &to) {
 }
 
 
-void FuncCallStmt::genCode(CodeCtx &ctx) {
- DEBUG ( cout << *m_call << endl );
- ((Expr*)m_call)->evalTo(ctx, "_r0");
-}
-FuncCallStmt::~FuncCallStmt() { delete m_call; }
 
 void WhileStmt::genCode(CodeCtx &ctx) {
  DEBUG ( cout << "While (" << *m_expr << ") " ); 
@@ -555,6 +550,11 @@ FuncExpr::~FuncExpr() {
        delete *itr;
   }
   delete m_args;
+}
+
+void FuncExpr::genCode(CodeCtx &ctx) {
+ DEBUG ( cout << *this << endl );
+ evalTo(ctx, "_r0");
 }
 
 void FuncExpr::evalTo(CodeCtx &ctx, const string &target) {

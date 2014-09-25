@@ -283,8 +283,9 @@ class FuncExpr : public Expr {
              m_args(args) {}
   ~FuncExpr();
   void stream ( std::ostream &o) const ;
-  void evalTo(CodeCtx &, const std::string &);
-  void genCode(CodeCtx & );
+  void genCall(CodeCtx &); // generate the call
+  void evalTo(CodeCtx &, const std::string &); // used from expressions
+  void genCode(CodeCtx & ); // used from statements.
 };
 
 class UserfuncStmt : public FuncExpr {

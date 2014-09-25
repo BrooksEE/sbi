@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <typeinfo>
+#include <cstring>
 
 using namespace std;
 
@@ -20,6 +21,7 @@ typedef map<string,int> LabelNums;
 class CtxImpl {
  public:
     bool debug;
+    int err_cnt;
 
     VarScope varScope;
     uint8_t regStack; // can go from 0-15
@@ -28,7 +30,13 @@ class CtxImpl {
     int nextLabel;
     int nextGlobal;
 
+    map<string,int> func_types; // function return types (0=void 1=int)
+    Function *cur_func; // current functio being generated if needed by other embedded statements.
+
+
     CtxImpl() :
+        debug(false),
+        err_cnt(0),
         regStack(2), // start at 2 to reserve _r0 and _r1 for expressions.
         nextLabel(0),
         nextGlobal(0) {
@@ -55,7 +63,7 @@ class CtxImpl {
        VarCtx* ctx = CurVarCtx();
        // if has already error
        if (ctx->count(var)>0) {
-            error ( "variable already defined." );
+            error ( "variable (%s) already defined.", var.c_str() );
        }
        
        // add var to context
@@ -89,31 +97,55 @@ class CtxImpl {
             }
        }
 
-       error ( "Undefined variable" );
+       error ( "Undefined variable: %s", var.c_str() );
        return "error";
     }
 
 
     // labels
-    void AddNameLabel(const string &name) {
-        if ( labels.count(name)>0) {
-            error ( "Label already exists." );
+    void AddFunction(const Function *func) {
+        if ( labels.count(func->m_name)>0) {
+            error ( "Function name (%s) already exists.", func->m_name.c_str() );
         }
-        int nextl = labels.size();
-        labels[name] = nextl; 
+        labels[func->m_name] = nextLabel++; 
+        func_types[func->m_name] = func->m_rettype;
     }
-    int GetNameLabel(const string &name) {
-        if ( labels.count(name)==0 ) error ( "Label not found." );
+
+    int GetFunctionLoc(const string &name) {
+        if ( labels.count(name)==0 ) error ( "Function (%s) not defined.", name.c_str() );
         return labels[name];
     }
 
+    int GetFunctionRet(const string &name) {
+        if (func_types.count(name) == 0) error ( "Function (%s) not defined.", name.c_str() );
+        return func_types[name];
+    }
+
     int NextLabel() {
-        return ++nextLabel + labels.size();
+        return nextLabel++;
     }
 
     // error management
-    void error(const char* err) {
-        cerr << err << endl;
+    void error(const char* err, ...) {
+        int l = strlen(err) + 256;
+        char *s = new char[l];
+        va_list args;
+        va_start(args,err);
+        vsnprintf ( s, l, err, args );
+        va_end(args);
+        cerr << "ERROR: " << s << endl;
+        delete [] s;
+        ++err_cnt;
+    }
+    void warning (const char* warn, ...) {
+        int l = strlen(warn) + 256;
+        char *s = new char[l];
+        va_list args;
+        va_start(args,warn);
+        vsnprintf ( s, l, warn, args );
+        va_end(args);
+        cerr << "WARNING: " << s << endl;
+        delete [] s;
     }
 };
 
@@ -179,16 +211,15 @@ void Program::genCode(CodeCtx &ctx) {
   for (FunctionList::iterator itr = m_functions->begin();
        itr < m_functions->end();
        ++itr) {
-       CTX->AddNameLabel((*itr)->m_name);
+       CTX->AddFunction(*itr);
   }
   
   // generate a main
 
-  int m = CTX->GetNameLabel("main");
+  int m = CTX->GetFunctionLoc("main");
   emit ( ctx, "jump %d 1\t\t\t; jump to main\n", m );
   emit ( ctx, "exit\n" );
-
-
+  
   for (FunctionList::iterator itr = m_functions->begin();
        itr < m_functions->end();
        ++itr ) {
@@ -239,9 +270,12 @@ void Function::genCode(CodeCtx &ctx) {
            ++itr ) cout << *itr << ',';
      cout << ')' );
 
-  int funcStart = CTX->GetNameLabel(m_name);
+  int funcStart = CTX->GetFunctionLoc(m_name);
   emit ( ctx, "label %d\t\t\t; function %s\n", funcStart, m_name.c_str() );
   CTX->PushVarCtx(); 
+
+  if (m_name == "main" && m_args->size())
+    CTX->error ( "Function main does not take arguments." );
 
   for (FunctionArgList::iterator itr = m_args->begin();
        itr < m_args->end();
@@ -254,19 +288,23 @@ void Function::genCode(CodeCtx &ctx) {
        string loc = CTX->FindVarLoc(*itr);
        emit ( ctx, "pop %s\t\t\t; arg %s\n", loc.c_str(), itr->c_str() ); 
   }
+  CTX->cur_func = this;
   m_block->genCode(ctx);
   CTX->PopVarCtx();
   // is last statement a return
-  bool pushval=true;
+  bool ret=true;
   if (m_block->m_stmts->size()) {
      Node* last = m_block->m_stmts->back(); 
      if (typeid(*last) == typeid(ReturnStmt))
-        pushval=false;
+        ret=false;
   }
-  if (pushval) {
+  if (ret && m_rettype) {
+    CTX->warning ( "Control of non-void function (%s) reached end without return statement.", m_name.c_str() );
     emit(ctx, "push 0\t\t\t; no return in code\n" );
-    emit(ctx, "ret\t\t\t; return\n" );
   }
+
+  if (ret)
+    emit(ctx, "ret\t\t\t; return\n" );
 }
 
 // statements
@@ -397,11 +435,20 @@ void IfStmt::genCode(CodeCtx &ctx) {
 void ReturnStmt::genCode(CodeCtx &ctx) {
  DEBUG ( cout << "return "; 
          if (m_expr) cout << *m_expr; );
+ int func_ret = CTX->cur_func->m_rettype;
  if (m_expr) {
-    m_expr->evalTo(ctx,"_r0");
-    emit (ctx, "push _r0\t\t\t; return value\n" );
- } else
-    emit (ctx, "push 0\t\t\t; empty return\n" );
+    if (!func_ret)
+        CTX->warning ( "return value from void function (%s) ignored.", CTX->cur_func->m_name.c_str() );
+    else {
+        m_expr->evalTo(ctx,"_r0");
+        emit (ctx, "push _r0\t\t\t; return value\n" );
+    }
+ } else {
+    if (func_ret) { 
+        CTX->warning ( "return stmt without value from non-void function (%s).", CTX->cur_func->m_name.c_str() );
+        emit (ctx,"push 0\t\t\t; assumed return value (bad)\n" );
+    }
+ }
  emit(ctx,"ret\t\t\t;\n" );
 }
 
@@ -552,16 +599,8 @@ FuncExpr::~FuncExpr() {
   delete m_args;
 }
 
-void FuncExpr::genCode(CodeCtx &ctx) {
- DEBUG ( cout << *this << endl );
- evalTo(ctx, "_r0");
-}
-
-void FuncExpr::evalTo(CodeCtx &ctx, const string &target) {
-   // TODO check actual function
-   // and ensure it returns a value
-   // (error if function is void)
- 
+void FuncExpr::genCall(CodeCtx &ctx) {
+   
    // push args in reverse order
    for (FunctionCallArgList::reverse_iterator itr = m_args->rbegin();
         itr < m_args->rend();
@@ -569,9 +608,27 @@ void FuncExpr::evalTo(CodeCtx &ctx, const string &target) {
         (*itr)->evalTo(ctx, "_r0");
         emit ( ctx, "push _r0\t\t\t; function argument\n" );
    }
-   int funcLabel = CTX->GetNameLabel(m_name);
+   int funcLabel = CTX->GetFunctionLoc(m_name);
    emit ( ctx, "jump %d 1\t\t\t; call %s\n", funcLabel, m_name.c_str() );
-   emit ( ctx, "pop %s\t\t\t; func result\n", target.c_str() );
+  
+}
+
+void FuncExpr::genCode(CodeCtx &ctx) {
+ DEBUG ( cout << *this << endl );
+ genCall(ctx); 
+ int type = CTX->GetFunctionRet(m_name);
+ if (type) emit ( ctx, "pop\t\t\t; ignoring func ret value.\n" );
+}
+
+void FuncExpr::evalTo(CodeCtx &ctx, const string &target) {
+   genCall(ctx);
+   int type = CTX->GetFunctionRet(m_name);
+   if (type) 
+      emit ( ctx, "pop %s\t\t\t; func result\n", target.c_str() );
+   else {
+      CTX->warning ( "function (%s) does not return a value.", m_name.c_str() );
+      emit ( ctx, "move %s 0\t\t\t; void func used in expression\n", target.c_str() );
+   }
 }
 
 void ThreadExpr::genCode(CodeCtx &ctx) {
@@ -580,7 +637,7 @@ void ThreadExpr::genCode(CodeCtx &ctx) {
 }
 
 void ThreadExpr::evalTo(CodeCtx &ctx, const string &target) {
-   int l=CTX->GetNameLabel(m_name);
+   int l=CTX->GetFunctionLoc(m_name);
    emit ( ctx, "thread %d %s\t\t\t; start thread %s\n", l, target.c_str(), m_name.c_str() );
 }
 

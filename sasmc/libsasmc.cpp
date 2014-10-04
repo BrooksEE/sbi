@@ -2,7 +2,13 @@
 
 #include <cstdlib>
 #include <cstdio>
+#ifdef _MSC_VER
+typedef unsigned __int32 uint32_t;
+typedef unsigned __int16 uint16_t;
+typedef unsigned __int8 uint8_t;
+#else
 #include <stdint.h>
+#endif
 #include <cstring>
 #include <iostream>
 #include <fstream>
@@ -64,34 +70,34 @@ typedef enum
 */
 void beginsbi(sasmc_ctx_t &ctx)
 {
-	char buf[2] = { HEADER_0, HEADER_1 };
-	ctx.f.write(buf, 2);
+	uint8_t buf[2] = { HEADER_0, HEADER_1 };
+	ctx.f.write((char*)buf, 2);
 }
 
 void endsbi(sasmc_ctx_t& ctx)
 {
-	char buf[2] = { FOOTER_0, FOOTER_1 };
-	ctx.f.write(buf, 2);
+	uint8_t buf[2] = { FOOTER_0, FOOTER_1 };
+	ctx.f.write((char*)buf, 2);
 }
 
 #define sbiwb(b) _sbiwb(b,ctx)
 void _sbiwb(uint8_t b, sasmc_ctx_t& ctx)
 {
-	char buf[1] = { b };
-	ctx.f.write(buf, 1);
+	uint8_t buf[1] = { b };
+	ctx.f.write((char*)buf, 1);
 }
 
 void sbiwi(int addr, sasmc_ctx_t& ctx)
 {
-	char buf[2] = {(addr & 0xFF), (addr >> 8)};
-	ctx.f.write(buf, 2);
+	uint8_t buf[2] = {(addr & 0xFF), (addr >> 8)};
+	ctx.f.write((char*)buf, 2);
 }
 
 #define wb(b) _wb(b,ctx) // easy access to wb for pline
 void _wb(uint8_t b, sasmc_ctx_t& ctx)
 {
-	char buf[1] = { b };
-	ctx.fp.write(buf, 1);
+	uint8_t buf[1] = { b };
+	ctx.fp.write((char*)buf, 1);
 	ctx.progln++;
 }
 
@@ -121,12 +127,15 @@ void wsbi(sasmc_ctx_t& ctx)
 	ctx.fp.open(ctx.prgname.c_str(), ios::in | ios::binary);
 	
 	ctx.fp.seekg(0);
-	char buff[ctx.progln];
-  ctx.fp.read(buff, ctx.progln);
+	char *buff = new char[ctx.progln];
+    ctx.fp.read(buff, ctx.progln);
   
-  ctx.f.write(buff, ctx.progln);
+    ctx.f.write(buff, ctx.progln);
 	
 	endsbi(ctx);
+	
+	delete [] buff;
+	
 }
 
 /*
@@ -178,8 +187,12 @@ void _cerror(string command, CERRORTYPE type, sasmc_ctx_t &ctx)
 */
 int pline(string command, int argn, vector<string>& args, sasmc_ctx_t& ctx)
 {
-	uint8_t argt[argn];
-	uint32_t argv[argn];
+	uint8_t argt[8];
+	uint32_t argv[8];
+	if (argn>8) {
+		cerror(command, WRONGNUM);
+		return 1;
+	}
 	int i=0;
 	int p=0;
 	for (i=0; i<argn; i++)

@@ -1,0 +1,14 @@
+
+
+print "hello world.\n"; // new print functionality
+print "statement with a tab\thi\n."; a tab
+print "a backslash\\\n";
+print "new line"; 
+print "\rnewer line\n";
+print "\uunsupported slashes \a\n";
+print "a quote\"\n"
+; print "mistake \
+; uncomment above to test error
+print "embedded ; semicolon\n" ; shouldn't break
+print "hello world.\n"; copy of 1st string, check to ensure it's not duplicated in sbi
+exit

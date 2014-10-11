@@ -35,7 +35,7 @@ public:
     void setString(const std::string& str);             // set source string only
     void setDelimiter(const std::string& delimiter);    // set delimiter string only
 
-    std::string next();                                 // return the next token, return "" if it ends
+    std::string next(bool wantDelimiters);              // return the next token, return "" if it ends
 
     std::vector<std::string> split();                   // return array of tokens from current cursor
 

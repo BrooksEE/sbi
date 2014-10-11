@@ -72,6 +72,7 @@ void _sbi_removethread(SBITHREAD* thread, sbi_runtime_t*);
 // easy access
 #define _debug(d)				RT->ctx->debugn(d,rt)
 #define _error(d)				RT->ctx->errorn(d,rt)
+#define _print(d)               RT->ctx->print(d)
 #define _getfch()               RT->ctx->getfch(thread->p++, rt)
 // for casting void* to runtime
 #define RT ((sbi_runtime_t*)rt)
@@ -357,6 +358,32 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 			_error(_getval(var1t, var1, thread));
 			return SBI_PROG_ERROR;
 			break;
+        case _istr_print:
+            { 
+                uint16_t strLoc = _getfch();
+                strLoc |= _getfch()<<8;
+                if (rt->ctx->print) {
+                    PCOUNT curp = CUR_PCOUNT; 
+                    CUR_PCOUNT = strLoc;
+                    int slen = 0;
+                    int tmplen=0;
+                    char *tmp = NULL;
+                    char cur;
+                    do {
+                        cur = _getfch();
+                        if (tmplen==slen) {
+                           tmp = (char*) realloc ( tmp, slen+20 ); 
+                           slen += 20;
+                           if (!tmp) return SBI_ALLOC_ERROR;
+                        }
+                        tmp[tmplen++] = cur;
+                    } while (cur != 0);
+                    _print(tmp);
+                    free(tmp);
+                    CUR_PCOUNT = curp; 
+                }
+            }
+            break;
 		case _istr_sint:
 			var1t = _getfch();
             var1 = _getfval(var1t);

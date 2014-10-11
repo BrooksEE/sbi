@@ -65,7 +65,7 @@
     #ifndef DATA_WIDTH
         #define DATA_WIDTH 1
     #endif
-	
+
     #if DATA_WIDTH == 4
     typedef uint32_t DTYPE;
     #elif DATA_WIDTH == 2
@@ -124,6 +124,12 @@
 
 	// Put here your error printing code
 	typedef void(*errorn_func)(DTYPE n, void* );
+
+    // Print support
+    // this is optional, if the platform
+    // can't support printing you can
+    // leave it NULL
+    typedef void(*print_func)(const char*);
     
     // returns the next byte from the source sbi
 	typedef uint8_t (*getfch_func)(PCOUNT p, void*);
@@ -132,6 +138,7 @@
 		debugn_func debugn;
 		errorn_func errorn;
         getfch_func getfch;
+        print_func print;
 	    sbi_user_func sbi_user_funcs[USERFUNCTIONSN];
         void* userdata;
 	} sbi_context_t;

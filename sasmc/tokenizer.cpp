@@ -68,19 +68,57 @@ void Tokenizer::setDelimiter(const std::string& delimiter)
 // return the next token
 // If cannot find a token anymore, return "".
 ///////////////////////////////////////////////////////////////////////////////
-std::string Tokenizer::next()
+std::string Tokenizer::next(bool wantDelimiters)
 {
     if(buffer.size() <= 0) return "";           // skip if buffer is empty
 
     token.clear();                              // reset token string
 
-    this->skipDelimiter();                      // skip leading delimiters
+    if (wantDelimiters) {
+        if (isDelimiter(*currPos)) {
+            token += *currPos;
+            ++currPos;
+            return token;
+        }
+    } else {
+        this->skipDelimiter();                      // skip leading delimiters
+    }
 
-    // append each char to token string until it meets delimiter
-    while(currPos != buffer.end() && !isDelimiter(*currPos))
-    {
-        token += *currPos;
-        ++currPos;
+    if (*currPos == '"') {
+        // string state
+        ++currPos; // skip quote
+        while(currPos != buffer.end() && *currPos != '"') {
+            char tmp = *currPos;
+            ++currPos;
+            if (tmp == '\\' && currPos != buffer.end()) {
+                switch ( *currPos ) {
+                   case '\\': tmp = '\\'; break;
+                   case 't': tmp = '\t'; break;
+                   case 'n': tmp = '\n'; break;
+                   case 'r': tmp = '\r'; break;
+                   case '"': tmp = '"'; break;
+                   default:
+                      // unsupported escape sequence
+                      // just send the slash and character as is.
+                      token += '\\';
+                      tmp = *currPos;
+                }
+                ++currPos;
+            }
+            token += tmp;
+        }
+        if (*currPos=='"') ++currPos;
+        else return ""; // in the case we neded with no quote it's an error for unterminated string literal.
+                        // TODO a better parser will flag this correctly instead of just returning
+                        // empty
+
+    } else {
+        // append each char to token string until it meets delimiter
+        while(currPos != buffer.end() && !isDelimiter(*currPos))
+        {
+            token += *currPos;
+            ++currPos;
+        }
     }
     return token;
 }
@@ -116,7 +154,7 @@ std::vector<std::string> Tokenizer::split()
 {
     std::vector<std::string> tokens;
     std::string token;
-    while((token = this->next()) != "")
+    while((token = this->next(false)) != "")
     {
         tokens.push_back(token);
     }

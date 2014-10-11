@@ -24,6 +24,10 @@
 		printf("ERROR\t\t0x%02X\t\t%i\n", n, n);
 		return;
 	}
+
+    void print(const char* str) {
+        printf ( str ); 
+    }
 	
 	DTYPE myfunc(uint8_t argc, DTYPE* args)
 	{

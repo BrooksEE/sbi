@@ -21,6 +21,7 @@
     //         thread local _r[0-15]
     // <const> = 0-max int as defined by DATA_WIDTH
     // <any> = <var> or <const>
+    // "string" used only with print. 
 	#define _istr_assign					0x01 // assign <var> <const> ; var=const // TODO redundant w/ move deprecate 
 	#define _istr_move						0x02 // move <var> <any> ; var=any
 	#define _istr_add						0x10 // add <any1> <any2> <var> ; var=any1+any2
@@ -45,6 +46,7 @@
 	#define	_istr_ret						0x43 // ret ; cause PC to jump to previous stored PC.  Function return.
 	#define _istr_debug						0x50 // debug <any> ;  cause programs debug function handler to be called
 	#define _istr_error						0x52 // error <any> ;  cause programs error function to be called - aborts program
+    #define _istr_print                     0x53 // print "string" ; cause program to print string 
 	#define _istr_sint						0x60 // sint <const> ;  set current thread user function to <const>
 	#define _istr_int						0x61 // int |<any> ... ; call current thread user function any number of args as parameters. 
     #define _istr_intr                      0x62 // intr <var> |<any> ... ; same as int but store func result in <var>

@@ -40,6 +40,8 @@ class sasmc_ctx_t {
     int labels[256];
     uint8_t interruptsn;
     int interrupts[256];
+    vector<string> print_strings; // unique strings
+    map<int,int> print_strloc_map; // location of print statements.
     long progln;
     string prgname;
     sasmc_ctx_t() :
@@ -129,10 +131,32 @@ void wsbi(sasmc_ctx_t& ctx)
 	ctx.fp.seekg(0);
 	char *buff = new char[ctx.progln];
     ctx.fp.read(buff, ctx.progln);
+
+    map<int,int> str_locs;
+    int progln=headln + ctx.progln+2; // for the footer 
+    for (int i=0;i<ctx.print_strings.size();++i) {
+        str_locs[i] = progln; 
+        progln += ctx.print_strings[i].size() + 1;
+    }
+    // now replace print statement locations with string positions.
+    for (map<int,int>::iterator itr = ctx.print_strloc_map.begin();
+         itr != ctx.print_strloc_map.end();
+         ++itr ) {
+         int pos = itr->first;
+         int strIdx = itr->second;
+         int strPos = str_locs[strIdx];
+         buff[pos] = strPos & 0xff; 
+         buff[pos+1] = strPos >> 8;
+    }
   
     ctx.f.write(buff, ctx.progln);
-	
 	endsbi(ctx);
+
+    // now write the strings
+    for (int i=0;i<ctx.print_strings.size();++i) {
+        ctx.f.write( ctx.print_strings[i].c_str(), ctx.print_strings[i].size() );
+        ctx.f.put ( '\0' );
+    }
 	
 	delete [] buff;
 	
@@ -185,16 +209,29 @@ void _cerror(string command, CERRORTYPE type, sasmc_ctx_t &ctx)
 /*
 	Compilation functions
 */
-int pline(string command, int argn, vector<string>& args, sasmc_ctx_t& ctx)
+int pline(string command, vector<string>& args, sasmc_ctx_t& ctx)
 {
-	uint8_t argt[8];
-	uint32_t argv[8];
-	if (argn>8) {
-		cerror(command, WRONGNUM);
-		return 1;
-	}
+    int argn=args.size();
+	vector<uint8_t> argt(argn);
+	vector<uint32_t> argv(argn);
+
 	int i=0;
 	int p=0;
+    if (command == "print") {
+        if (argn != 1) { cerror(command,WRONGNUM); return 1; }
+        int psLoc;
+        for (psLoc = 0; psLoc < ctx.print_strings.size(); ++psLoc )
+            if (ctx.print_strings[psLoc] == args.front())
+                break;
+        if (psLoc == ctx.print_strings.size())
+            ctx.print_strings.push_back(args.front());
+        wb(_istr_print);
+        ctx.print_strloc_map[ctx.progln] = psLoc;
+        wb(0xDD); // tmp replace w/ str loc later on.
+        wb(0xEE);
+        return 0;
+    }
+
 	for (i=0; i<argn; i++)
 	{
 		if ((args[i][0]=='_')&&
@@ -435,6 +472,7 @@ int sasmc (
 	    instructions["ret"] = _istr_ret;
 	    instructions["debug"] = _istr_debug;
 	    instructions["error"] = _istr_error;
+        instructions["print"] = _istr_print;
 	    instructions["sint"] = _istr_sint;
 	    instructions["int"] = _istr_int;
         instructions["intr"] = _istr_intr;
@@ -469,23 +507,24 @@ int sasmc (
 		Tokenizer str;
 		string token;
 		string command;
-		vector<string> tokens(16);
-		int cnt = 0;
+		vector<string> tokens;
 		int ret;
 	    	
-		if (line.find(';')!=-1) line = line.substr(0, line.find(';'));
 		if (line!="")
 		{
-			str.set(line, " \t");
+			str.set(line, " \t;");
+            tokens.clear();
     
-			while((token = str.next()) != "")
+			while((token = str.next(true)) != "")
 			{
-				if (cnt==0) command = token; else tokens[cnt-1] = token;
-				cnt++;
+                if (token == ";") break;
+                if (token != " " && token != "\t" )
+				    tokens.push_back(token);
 			}
-	    		
-			int nt = cnt-1;
-			ret = pline(command.c_str(), nt, tokens, ctx);
+            if (tokens.empty()) continue;
+	        command = tokens.front();
+            tokens.erase(tokens.begin());
+			ret = pline(command.c_str(), tokens, ctx);
 			if (ret>0) { ctx.f.close(); ctx.fp.close(); file.close(); remove(dst.c_str()); remove(ctx.prgname.c_str()); return 1; }
 		}
 		

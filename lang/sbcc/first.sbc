@@ -21,6 +21,10 @@ int ignore;
 
 // main
 void main() {
+
+  print ( "prog start\n" );
+  print ( "\\\rgood \t\t\" 'line'\n" );
+
   int tId = thread(thread2);
   int tSome = thread(somethread);
   wait (tId);
@@ -43,6 +47,8 @@ void main() {
     stop(tSome);
     debug(0xaa); // killed a thread
   }
+
+  print ( "prog exit\n" );
 
 }
 

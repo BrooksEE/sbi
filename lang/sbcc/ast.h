@@ -208,6 +208,13 @@ class DebugStmt : public Node {
   void genCode(CodeCtx &);
 };
 
+class PrintStmt : public Node {
+  public:
+  std::string m_str;
+  PrintStmt(const char* str) : m_str(str) {}
+  void genCode(CodeCtx &);
+};
+
 class WaitStmt : public Node {
   public:
   std::string m_wait;

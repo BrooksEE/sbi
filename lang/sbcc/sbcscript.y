@@ -29,15 +29,15 @@ void yyerror(const char *s);
     Stmts *stmts;
 }
 
-%token THREAD DEBUG ERROR WAIT EXIT
+%token THREAD DEBUG ERROR PRINT WAIT EXIT
 %token WHILE IF ELSE RETURN STOP IS_RUNNING DO FOR
 %token EQOP NEOP GE LE
 
 %token <ival> INT VAR VOID USERF
-%token <sval> STRING
+%token <sval> STRING STRVAR
 
 
-%type<node> sbcscript stmt code_block function_decl assign expr term return deberr
+%type<node> sbcscript stmt code_block function_decl assign expr term return deberr print
 %type<node> gvar_decl var_decl function_call userfunc_call while if ifblock elseblock wait thread stop is_running 
 %type<node> dowhile for for_expr for_begin for_step
 %type<funcargs> function_decl_args 
@@ -92,6 +92,7 @@ stmt:
     | if { $$ = $1; }
     | return ';' { $$ = $1; }
     | deberr ';' { $$ = $1; }
+    | print ';' { $$ = $1; }
     | wait ';' { $$ = $1; }
     | thread ';' { $$ = $1; }
     | userfunc_call ';' { $$ = $1; }
@@ -188,6 +189,10 @@ function_call_args:
 deberr:
     DEBUG '(' expr ')' { $$ = new DebugStmt ( "debug", (Expr*)$3 ); }
     | ERROR '(' expr ')' { $$ = new DebugStmt ( "error", (Expr*)$3 ); } 
+    ;
+
+print:
+    PRINT '(' STRVAR ')' { $$ = new PrintStmt ( $3 ); free($3); } 
     ;
 
 expr:

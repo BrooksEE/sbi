@@ -463,6 +463,11 @@ void DebugStmt::genCode(CodeCtx &ctx) {
   emit ( ctx, "%s _r0\n", m_call.c_str() );
 }
 
+void PrintStmt::genCode(CodeCtx& ctx) {
+  DEBUG ( cout << "print(" << m_str << ")" );
+  emit ( ctx, "print %s;\n" , m_str.c_str() );
+}
+
 void WaitStmt::genCode(CodeCtx &ctx) {
   DEBUG ( cout << "wait ( " << m_wait << " ) " );
   string loc = CTX->FindVarLoc(m_wait);

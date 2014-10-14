@@ -124,8 +124,12 @@ unsigned int _setval(uint8_t type, uint8_t num, DTYPE val, void* t)
  */
 void* sbi_init(sbi_context_t * ctx)
 {
+	_TRACE ( "sbi_init require %d bytes\n", sizeof(sbi_runtime_t) );
     sbi_runtime_t *rt = (sbi_runtime_t*)malloc(sizeof(sbi_runtime_t));
-    if (!rt) return NULL;
+    if (!rt) {
+    	_ERR ( "sbi_init malloc error\n");
+    	return NULL;
+    }
     memset ( rt, 0, sizeof(sbi_runtime_t) );
 
     rt->ctx = ctx;
@@ -499,6 +503,7 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 SBITHREAD* _sbi_createthread(PCOUNT p, sbi_runtime_t *rt)
 {
 	// Allocate memory for a new structure
+	_TRACE( "_sbi_createthread require %d bytes\n", sizeof(SBITHREAD));
 	SBITHREAD* t = (SBITHREAD*) malloc(sizeof(SBITHREAD));
     if (!t) return NULL;
 	
@@ -666,6 +671,7 @@ sbi_error_t sbi_interrupt(const unsigned int id, void* rt)
 }
 
 void sbi_cleanup(void *rt) {
+	if (!rt) return;
     int i;
     for (i=0;i<RT->thread_cnt;++i) {
       if (RT->_sbi_threads[i]) {

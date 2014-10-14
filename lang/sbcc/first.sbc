@@ -64,6 +64,13 @@ void thread2 () {
      } else 
         debug ( math ( 0xff, 1, c ) );
   }
+
+  c=5;
+  int y=0;
+  if ( c && y ) error(0xe1);
+  if ( y || c ) print ( "or ok\n" );
+  if ( c && (y || 1)) print ( "don't need y\n" );
+
 }
 
 

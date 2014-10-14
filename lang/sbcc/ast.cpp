@@ -536,6 +536,12 @@ void BinaryExpr::stream(std::ostream &o) const {
    case OP_NE:
       o << "!=";
       break;
+   case OP_AND:
+      o << "&&";
+      break;
+   case OP_OR:
+      o << "||";
+      break;
    default:
       o << " ** ?? ** ";
  }
@@ -548,44 +554,54 @@ void InvExpr::evalTo(CodeCtx &ctx, const string &target) {
 }
 
 void BinaryExpr::evalTo(CodeCtx &ctx, const string &target) {
-  m_left->evalTo(ctx, "_r0"); 
-  emit ( ctx, "push _r0\t\t\t; left hand result\n" ); 
-  m_right->evalTo(ctx, "_r1");  
-  emit ( ctx, "pop _r0\t\t\t; expr left\n" );
-  switch (m_oper) {
-      case OP_ADD:
-        emit(ctx, "add _r0 _r1 %s\t\t\t; + \n", target.c_str());
-        break;
-      case OP_SUB:
-        emit(ctx, "sub _r0 _r1 %s\t\t\t; - \n", target.c_str());
-        break;
-      case OP_MULT:
-        emit(ctx, "mul _r0 _r1 %s\t\t\t; * \n", target.c_str());
-        break;
-      case OP_DIV:
-        emit(ctx, "div _r0 _r1 %s\t\t\t; * \n", target.c_str());
-        break;
-      case OP_LT:
-        emit(ctx, "low _r0 _r1 %s\t\t\t; < \n", target.c_str());
-        break;
-      case OP_GT:
-        emit(ctx, "high _r0 _r1 %s\t\t\t; > \n", target.c_str());
-        break;
-      case OP_LE:
-        emit(ctx, "lte _r0 _r1 %s\t\t\t; <= \n", target.c_str());
-        break;
-      case OP_GE:
-        emit(ctx, "gte _r0 _r1 %s\t\t\t; >= \n", target.c_str());
-        break;
-      case OP_EQ:
-        emit(ctx, "cmp _r0 _r1 %s\t\t\t; == \n", target.c_str());
-        break;
-      case OP_NE:
-        emit(ctx, "cmp _r0 _r1 %s\t\t\t; ne pre \n", target.c_str() );
-        emit(ctx, "inv %s\t\t\t; != \n", target.c_str() );
-        break;
-      default:
-        CTX->error ( "unimplemented binary operator." );
+  if (m_oper != OP_AND && m_oper != OP_OR) {
+    m_left->evalTo(ctx, "_r0"); 
+    emit ( ctx, "push _r0\t\t\t; left hand result\n" ); 
+    m_right->evalTo(ctx, "_r1");  
+    emit ( ctx, "pop _r0\t\t\t; expr left\n" );
+    switch (m_oper) {
+        case OP_ADD:
+          emit(ctx, "add _r0 _r1 %s\t\t\t; + \n", target.c_str());
+          break;
+        case OP_SUB:
+          emit(ctx, "sub _r0 _r1 %s\t\t\t; - \n", target.c_str());
+          break;
+        case OP_MULT:
+          emit(ctx, "mul _r0 _r1 %s\t\t\t; * \n", target.c_str());
+          break;
+        case OP_DIV:
+          emit(ctx, "div _r0 _r1 %s\t\t\t; * \n", target.c_str());
+          break;
+        case OP_LT:
+          emit(ctx, "low _r0 _r1 %s\t\t\t; < \n", target.c_str());
+          break;
+        case OP_GT:
+          emit(ctx, "high _r0 _r1 %s\t\t\t; > \n", target.c_str());
+          break;
+        case OP_LE:
+          emit(ctx, "lte _r0 _r1 %s\t\t\t; <= \n", target.c_str());
+          break;
+        case OP_GE:
+          emit(ctx, "gte _r0 _r1 %s\t\t\t; >= \n", target.c_str());
+          break;
+        case OP_EQ:
+          emit(ctx, "cmp _r0 _r1 %s\t\t\t; == \n", target.c_str());
+          break;
+        case OP_NE:
+          emit(ctx, "cmp _r0 _r1 %s\t\t\t; ne pre \n", target.c_str() );
+          emit(ctx, "inv %s\t\t\t; != \n", target.c_str() );
+          break;
+        default:
+          CTX->error ( "unimplemented binary operator." );
+    }
+  } else {
+    // and,or
+    int end = CTX->NextLabel();
+    m_left->evalTo(ctx,target);
+    emit ( ctx, "tob %s\t\t\t;\n", target.c_str() );
+    emit ( ctx, "cmpjump %s %d %d 0\t\t\t;left?\n", target.c_str(), m_oper == OP_AND ? 0 : 1, end );
+    m_right->evalTo(ctx,target);
+    emit ( ctx, "label %d; end logic oper\n", end );
   }
 }
 

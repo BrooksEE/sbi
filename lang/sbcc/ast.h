@@ -24,7 +24,9 @@ enum Oper {
   OP_LE,
   OP_GE,
   OP_EQ,
-  OP_NE
+  OP_NE,
+  OP_AND,
+  OP_OR
 };
 
 typedef std::vector<VarDec*> Globals;

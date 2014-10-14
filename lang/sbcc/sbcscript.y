@@ -31,7 +31,7 @@ void yyerror(const char *s);
 
 %token THREAD DEBUG ERROR PRINT WAIT EXIT
 %token WHILE IF ELSE RETURN STOP IS_RUNNING DO FOR
-%token EQOP NEOP GE LE
+%token EQOP NEOP GE LE LOGIC_AND LOGIC_OR
 
 %token <ival> INT VAR VOID USERF
 %token <sval> STRING STRVAR
@@ -45,7 +45,7 @@ void yyerror(const char *s);
 %type<stmts> stmts
 %type<sval> lval
 
-%left '<' '>' LE GE EQOP NEOP
+%left '<' '>' LE GE EQOP NEOP LOGIC_AND LOGIC_OR
 %left '-' '+'
 %left '*' '/'
 
@@ -207,8 +207,12 @@ expr:
     | expr LE expr { $$ = new BinaryExpr ( (Expr*)$1, OP_LE, (Expr*)$3 ); }
     | expr GE expr { $$ = new BinaryExpr ( (Expr*)$1, OP_GE, (Expr*)$3 ); }
     | expr EQOP expr { $$ = new BinaryExpr ( (Expr*)$1, OP_EQ, (Expr*)$3 ); }
+    | expr GE expr { $$ = new BinaryExpr ( (Expr*)$1, OP_GE, (Expr*)$3 ); }
+    | expr EQOP expr { $$ = new BinaryExpr ( (Expr*)$1, OP_EQ, (Expr*)$3 ); }
     | expr NEOP expr { $$ = new BinaryExpr ( (Expr*)$1, OP_NE, (Expr*)$3 ); }
-    | '!' expr { $$ = new InvExpr((Expr*)$2); }
+    | expr LOGIC_AND expr { $$ = new BinaryExpr ( (Expr*)$1, OP_AND, (Expr*)$3 ); }
+    | expr LOGIC_OR expr { $$ = new BinaryExpr ( (Expr*)$1, OP_OR, (Expr*)$3 ); }
+    | '!' expr { $$ = new InvExpr( (Expr*)$2); }
     ;
 
 term:

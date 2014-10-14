@@ -33,7 +33,7 @@
 	#define _istr_incr						0x20 // incr <var> ; <var> += 1
 	#define _istr_decr						0x21 // decr <var> ; <var> -= 1
 	#define _istr_inv						0x22 // inv <var> ; <var> = !<var>
-	#define _istr_tob						0x23 // tob <var> ; <var> = <var> ? 1 : 0 
+	#define _istr_tob						0x23 // tob <var> ; <var> > 0  ? 1 : 0 
 	#define _istr_cmp						0x30 // cmp <any1> <any2> <var> ; <var> = <any1> == <any2>
 	#define _istr_high						0x31 // high <any1> <any2> <var> ; <var> = <any2> > <any2>
 	#define _istr_low						0x32 // low <any1> <any2> <var> ; <var> = <any1> < <any2>

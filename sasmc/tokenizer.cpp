@@ -70,7 +70,7 @@ void Tokenizer::setDelimiter(const std::string& delimiter)
 ///////////////////////////////////////////////////////////////////////////////
 std::string Tokenizer::next(bool wantDelimiters)
 {
-    if(buffer.size() <= 0) return "";           // skip if buffer is empty
+    if(buffer.size() <= 0 || currPos == buffer.end()) return "";           // skip if buffer is empty
 
     token.clear();                              // reset token string
 

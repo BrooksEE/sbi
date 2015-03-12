@@ -145,12 +145,18 @@
 	
 	
     // public api 
+    #ifdef __cplusplus
+    extern "C" {
+    #endif
 	void* sbi_init(sbi_context_t*);
     sbi_error_t sbi_begin(void*);
 	sbi_error_t sbi_running(void*);
 	sbi_error_t sbi_step(void*);
 	sbi_error_t sbi_interrupt(const INTERRUPT id, void*);
     void sbi_cleanup(void*); // free resources after program run
+    #ifdef __cplusplus
+    } // end extern c
+    #endif
 
 	
 #endif

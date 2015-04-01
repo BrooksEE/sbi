@@ -384,13 +384,13 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
                 uint16_t strLoc = _getfch();
                 strLoc |= _getfch()<<8;
                 if (rt->ctx->print) {
-		    int slen, tmplen;
-		    char *tmp, cur;
+                    int slen, tmplen;
+                    char *tmp, cur;
                     PCOUNT curp = CUR_PCOUNT; 
                     CUR_PCOUNT = strLoc;
                     slen = 0;
                     tmplen=0;
-                    *tmp = NULL;
+                    tmp = NULL;
                     cur;
                     do {
                         cur = _getfch();

@@ -19,11 +19,16 @@
  #define _ERR(...)
  #define _TRACE(...)
 #endif
+
+
+#ifdef ERROR
+#undef ERROR // windows const
+#endif
     
 // SBI  stuctures
 typedef enum
 {
-	ERROR = 0,
+	ERROR,
 	STOPPED,
 	RUNNING
 } SBITHREADSTATUS;
@@ -68,17 +73,18 @@ SBITHREAD* _sbi_createthread(PCOUNT, sbi_runtime_t*);
 sbi_error_t _sbi_loadthread(SBITHREAD* thread, sbi_runtime_t*);
 void _sbi_removethread(SBITHREAD* thread, sbi_runtime_t*);
 
+// for casting void* to runtime
+#define RT ((sbi_runtime_t*)rt)
+#define _RETADDRS               thread->_returnaddresses
+#define CUR_PCOUNT              thread->p
+#define _LABELS                 RT->_labels
+
 // Variables, labels and subroutines
 // easy access
 #define _debug(d)				RT->ctx->debugn(d,rt)
 #define _error(d)				RT->ctx->errorn(d,rt)
 #define _print(d)               RT->ctx->print(d)
 #define _getfch()               RT->ctx->getfch(thread->p++, rt)
-// for casting void* to runtime
-#define RT ((sbi_runtime_t*)rt)
-#define _RETADDRS               thread->_returnaddresses
-#define CUR_PCOUNT              thread->p
-#define _LABELS                 RT->_labels
 
 /*
 	Gets the value of a parameter
@@ -124,7 +130,7 @@ unsigned int _setval(uint8_t type, uint8_t num, DTYPE val, void* t)
  */
 void* sbi_init(sbi_context_t * ctx)
 {
-	_TRACE ( "sbi_init require %d bytes\n", sizeof(sbi_runtime_t) );
+//	_TRACE ( "sbi_init require %d bytes\n", sizeof(sbi_runtime_t) );
     sbi_runtime_t *rt = (sbi_runtime_t*)malloc(sizeof(sbi_runtime_t));
     if (!rt) {
     	_ERR ( "sbi_init malloc error\n");
@@ -142,18 +148,23 @@ void* sbi_init(sbi_context_t * ctx)
  */
 sbi_error_t sbi_begin(void *rt) {
 
+    SBITHREAD *thread;
+    uint8_t rd;
+    unsigned int ln, c;
+    int ret;
+
     if (!rt) return SBI_INVALID_RT;
 
     // create the main thread
 	
-	SBITHREAD* thread = _sbi_createthread(0, (sbi_runtime_t*)rt);
+	thread = _sbi_createthread(0, (sbi_runtime_t*)rt);
     if (!thread) return SBI_ALLOC_ERROR;
 	
     if (!RT->ctx->getfch) return SBI_CTX_ERROR;
  
 	// Read head
 	if (_getfch()!=HEADER_0) return SBI_HEADER_ERROR;
-	uint8_t rd = _getfch();
+	rd = _getfch();
 	if (rd!=HEADER_1) {
 		if ((rd==0x1B)||(rd==0x2B)||(rd==0x3B))
 			return SBI_HEADER_OLD;
@@ -163,9 +174,9 @@ sbi_error_t sbi_begin(void *rt) {
 	
 	// Getting labels
 	if (_getfch()!=LABELSECTION) return SBI_HEADER_ERROR;
-	unsigned int ln = _getfch();
+	ln = _getfch();
 	RT->_labels = malloc(ln * sizeof(LABEL));
-	unsigned int c = 0;
+	c = 0;
 	while (ln--)
 	{
 			RT->_labels[c] = _getfch() | (_getfch() << 8);
@@ -185,7 +196,7 @@ sbi_error_t sbi_begin(void *rt) {
 	}
 	if (_getfch()!=SEPARATOR) return SBI_HEADER_ERROR;
 
-	int ret = _sbi_loadthread(thread, RT);
+	ret = _sbi_loadthread(thread, RT);
     return ret;
 
 }
@@ -254,15 +265,18 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
         case _istr_low:
         case _istr_lte:
         case _istr_gte:
+	    {
+	    	DTYPE v1, v2, val;
+
 			var1t = _getfch();
 			var1 = _getfval(var1t);
 			var2t = _getfch();
 			var2 = _getfval(var2t);
             var3t = _getfch();
             var3 = _getfch();
-            DTYPE v1=_getval(var1t,var1, thread); 
-            DTYPE v2=_getval(var2t,var2, thread);
-            DTYPE val = rd == _istr_add ? v1+v2 :
+            v1=_getval(var1t,var1, thread); 
+            v2=_getval(var2t,var2, thread);
+            val = rd == _istr_add ? v1+v2 :
                        rd == _istr_sub ? v1-v2 :
                        rd == _istr_mul ? v1*v2 :
                        rd == _istr_div ? v1/v2 :
@@ -275,6 +289,7 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
             _setval( var3t, var3, 
                      val,
                      thread );
+	    }
 			break;
         case _istr_push:
             if (thread->stackp>=STACK_SIZE-1) {
@@ -287,11 +302,12 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
             break;
         case _istr_pop:
             {
+	    	uint8_t n;
                 if (thread->stackp==0) {
                     _error(SBI_STACK_UNDERFLOW); // underflow
                     return SBI_PROG_ERROR;
                 }
-                uint8_t n = _getfch();
+                n = _getfch();
                 --thread->stackp;
                 if (n) {
                     DTYPE val = thread->stack[thread->stackp];
@@ -306,9 +322,10 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
         case _istr_inv:
         case _istr_tob:
             {
+	    	DTYPE val;
                 var1t=_getfch();
                 var1=_getfch();
-                DTYPE val = _getval( var1t, var1, thread);
+                val = _getval( var1t, var1, thread);
                 val = rd == _istr_incr ? val+1 :
                       rd == _istr_decr ? val-1 :
                       rd == _istr_inv ? !val :
@@ -367,12 +384,14 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
                 uint16_t strLoc = _getfch();
                 strLoc |= _getfch()<<8;
                 if (rt->ctx->print) {
+		    int slen, tmplen;
+		    char *tmp, cur;
                     PCOUNT curp = CUR_PCOUNT; 
                     CUR_PCOUNT = strLoc;
-                    int slen = 0;
-                    int tmplen=0;
-                    char *tmp = NULL;
-                    char cur;
+                    slen = 0;
+                    tmplen=0;
+                    *tmp = NULL;
+                    cur;
                     do {
                         cur = _getfch();
                         if (tmplen==slen) {
@@ -396,13 +415,14 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 		case _istr_int:
         case _istr_intr:
             {
+	    	uint8_t argc;
+		DTYPE *pvals=NULL, r;
                 // NOTE should parameters be pushed on the stack instead?
                 if (rd==_istr_intr) {
                     var1t=_getfch();
                     var1=_getfch();
                 }
-                uint8_t argc = _getfch();
-                DTYPE *pvals=NULL;
+                argc = _getfch();
                 if (argc>0) {
                     pvals = malloc(sizeof(DTYPE)*(argc));
                     if (!pvals) return SBI_ALLOC_ERROR; 
@@ -413,7 +433,7 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
                     var2 = _getfval(var2t);
                     pvals[i] = _getval(var2t,var2,thread);
                 }
-			    DTYPE r = RT->ctx->sbi_user_funcs[thread->_userfid](argc,pvals);
+		r = RT->ctx->sbi_user_funcs[thread->_userfid](argc,pvals);
                 if (rd==_istr_intr) {
                     _setval(var1t,var1,r,thread);
                 }
@@ -422,12 +442,14 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 			break;
         case _istr_thread:
             {
+	    	int ret;
+		uint8_t tId;
                 var1t = _getfch();
                 var1 = _getfch();
                 var2t = _getfch();
                 var2 = _getfch();
-                int ret = _sbi_new_thread_at(_LABELS[_getval(var1t,var1,thread)], rt);
-                uint8_t tId = !ret ? rt->new_threadid : 0;
+                ret = _sbi_new_thread_at(_LABELS[_getval(var1t,var1,thread)], rt);
+                tId = !ret ? rt->new_threadid : 0;
                 _setval( var2t, var2, tId, thread );
                 if (ret) _error(ret);
                 return ret;
@@ -435,9 +457,10 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
             break;
         case _istr_wait:
             {
+	        DTYPE tId;
                 var1t = _getfch();
                 var1 = _getfch();
-                DTYPE tId = _getval(var1t,var1,thread);
+                tId = _getval(var1t,var1,thread);
                 for (i=0;i<rt->thread_cnt;++i) {
                     if ( rt->_sbi_threads[i]->threadid == tId &&
                          rt->_sbi_threads[i]->status == RUNNING ) {
@@ -449,12 +472,13 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
             break;
         case _istr_alive:
             {
+	    DTYPE tId, val;
             var1t = _getfch();
             var1 = _getfch();
             var2t = _getfch();
             var2 = _getfch();
-            DTYPE tId = _getval(var1t,var1,thread);
-            DTYPE val = 0; // not running
+            tId = _getval(var1t,var1,thread);
+            val = 0; // not running
             for (i=0;i<rt->thread_cnt;++i) {
                if (rt->_sbi_threads[i]->threadid == tId &&
                    rt->_sbi_threads[i]->status == RUNNING) {
@@ -467,9 +491,10 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
             break;
         case _istr_stop:
             {
+	    DTYPE tId;
             var1t = _getfch();
             var1 = _getfch();
-            DTYPE tId = _getval(var1t,var1,thread);
+            tId = _getval(var1t,var1,thread);
             for (i=0;i<rt->thread_cnt;++i) {
                if (rt->_sbi_threads[i]->threadid == tId) {
                   rt->_sbi_threads[i]->status = STOPPED;
@@ -502,9 +527,10 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 */	
 SBITHREAD* _sbi_createthread(PCOUNT p, sbi_runtime_t *rt)
 {
+	SBITHREAD *t;
 	// Allocate memory for a new structure
 	_TRACE( "_sbi_createthread require %d bytes\n", sizeof(SBITHREAD));
-	SBITHREAD* t = (SBITHREAD*) malloc(sizeof(SBITHREAD));
+	t = (SBITHREAD*) malloc(sizeof(SBITHREAD));
     if (!t) return NULL;
 	
 	// Initialize thread
@@ -570,6 +596,7 @@ void _sbi_removethread(SBITHREAD* thread, sbi_runtime_t* rt)
 sbi_error_t sbi_step(void *rt)
 {
     unsigned int ret=0;
+    SBITHREAD *thread;
     if (!rt) return SBI_INVALID_RT;
     if (!RT->thread_cnt) return SBI_NOT_RUNNING;
 	#if !_SBI_MULTITHREADING_EQUALTIME
@@ -595,14 +622,15 @@ sbi_error_t sbi_step(void *rt)
 		//	}
 		//return c;
 	#else
-        SBITHREAD* thread = RT->_sbi_threads[RT->_sbi_currentthreadn];
+        thread = RT->_sbi_threads[RT->_sbi_currentthreadn];
 		if (thread)
 		{
 			if (thread->status == RUNNING)
 			{
                 if (RT->int_cnt>0) {
+		    INTERRUPT id;
                     _RETADDRS[thread->raddr_cnt++] = CUR_PCOUNT;
-                    INTERRUPT id = RT->_intinqueue[--RT->int_cnt];
+                    id = RT->_intinqueue[--RT->int_cnt];
 	                CUR_PCOUNT = RT->_interrupts[id]; // Set the program counter to interrupt's address
                 }
 				ret = _sbi_step_internal(thread,rt);
@@ -642,9 +670,9 @@ sbi_error_t sbi_step(void *rt)
 
 unsigned int sbi_running(void* rt)
 {
-	if (!rt) return 0;
 	int c = 0;
 	int i;
+	if (!rt) return 0;
 	for (i=0; i<RT->thread_cnt; i++)
 		if (RT->_sbi_threads[i])
 			if (RT->_sbi_threads[i]->status == RUNNING)
@@ -671,8 +699,8 @@ sbi_error_t sbi_interrupt(const unsigned int id, void* rt)
 }
 
 void sbi_cleanup(void *rt) {
-	if (!rt) return;
     int i;
+	if (!rt) return;
     for (i=0;i<RT->thread_cnt;++i) {
       if (RT->_sbi_threads[i]) {
         free ( RT->_sbi_threads[i] );

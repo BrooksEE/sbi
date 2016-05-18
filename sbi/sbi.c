@@ -84,6 +84,7 @@ void _sbi_removethread(SBITHREAD* thread, sbi_runtime_t*);
 #define _debug(d)				RT->ctx->debugn(d,rt)
 #define _error(d)				RT->ctx->errorn(d,rt)
 #define _print(d)               RT->ctx->print(d)
+#define _printd(d)             RT->ctx->printd(d)
 #define _getfch()               RT->ctx->getfch(thread->p++, rt)
 
 /*
@@ -405,6 +406,14 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
                     free(tmp);
                     CUR_PCOUNT = curp; 
                 }
+            }
+            break;
+        case _istr_printd:
+            {
+                var1t = _getfch();
+                var1 = _getfval(var1t);
+                if (rt->ctx->printd)
+                    _printd(_getval(var1t,var1,thread));
             }
             break;
 		case _istr_sint:

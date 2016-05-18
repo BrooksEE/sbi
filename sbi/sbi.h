@@ -137,6 +137,7 @@
     // can't support printing you can
     // leave it NULL
     typedef void(*print_func)(const char*);
+    typedef void(*printd_func)(DTYPE d);
     
     // returns the next byte from the source sbi
 	typedef uint8_t (*getfch_func)(PCOUNT p, void*);
@@ -146,6 +147,7 @@
 		errorn_func errorn;
         getfch_func getfch;
         print_func print;
+        printd_func printd;
 	    sbi_user_func sbi_user_funcs[USERFUNCTIONSN];
         void* userdata;
 	} sbi_context_t;

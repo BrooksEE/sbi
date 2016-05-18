@@ -87,6 +87,7 @@ std::string Tokenizer::next(bool wantDelimiters)
     if (*currPos == '"') {
         // string state
         ++currPos; // skip quote
+        token += '"'; // add it to token though
         while(currPos != buffer.end() && *currPos != '"') {
             char tmp = *currPos;
             ++currPos;
@@ -108,10 +109,10 @@ std::string Tokenizer::next(bool wantDelimiters)
             token += tmp;
         }
         if (*currPos=='"') ++currPos;
-        else return ""; // in the case we neded with no quote it's an error for unterminated string literal.
+        else return ""; // in the case we ended with no quote it's an error for unterminated string literal.
                         // TODO a better parser will flag this correctly instead of just returning
                         // empty
-
+        token += '"'; 
     } else {
         // append each char to token string until it meets delimiter
         while(currPos != buffer.end() && !isDelimiter(*currPos))

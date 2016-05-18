@@ -219,12 +219,16 @@ int pline(string command, vector<string>& args, sasmc_ctx_t& ctx)
 	int p=0;
     if (command == "print") {
         if (argn != 1) { cerror(command,WRONGNUM); return 1; }
+        string val=args.front();
+        if (val[0] != '"' || val[val.size()-1] != '"') { cerror(command,WRONGTYPE); return 1; }
+        // remove quotes
+        val = val.substr(1, val.size()-2);
         int psLoc;
         for (psLoc = 0; psLoc < ctx.print_strings.size(); ++psLoc )
-            if (ctx.print_strings[psLoc] == args.front())
+            if (ctx.print_strings[psLoc] == val)
                 break;
         if (psLoc == ctx.print_strings.size())
-            ctx.print_strings.push_back(args.front());
+            ctx.print_strings.push_back(val);
         wb(_istr_print);
         ctx.print_strloc_map[ctx.progln] = psLoc;
         wb(0xDD); // tmp replace w/ str loc later on.
@@ -366,7 +370,8 @@ int pline(string command, vector<string>& args, sasmc_ctx_t& ctx)
 	}
 	if (command.compare("debug")==0 ||
 	    command.compare("error")==0 ||
-        command.compare("sint")==0
+        command.compare("sint")==0 ||
+        command.compare("printd")== 0
        )
     {
 		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
@@ -473,6 +478,7 @@ int sasmc (
 	    instructions["debug"] = _istr_debug;
 	    instructions["error"] = _istr_error;
         instructions["print"] = _istr_print;
+        instructions["printd"] = _istr_printd;
 	    instructions["sint"] = _istr_sint;
 	    instructions["int"] = _istr_int;
         instructions["intr"] = _istr_intr;

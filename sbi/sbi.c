@@ -392,7 +392,6 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
                     slen = 0;
                     tmplen=0;
                     tmp = NULL;
-                    cur;
                     do {
                         cur = _getfch();
                         if (tmplen==slen) {

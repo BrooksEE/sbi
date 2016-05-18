@@ -28,6 +28,10 @@
     void print(const char* str) {
         printf ( str ); 
     }
+
+    void printd(DTYPE d) {
+        printf ( "%d", d );
+    }
 	
 	DTYPE myfunc(uint8_t argc, DTYPE* args)
 	{

@@ -29,6 +29,7 @@ int main(int argc, char** argv)
     ctx.debugn=debugn;
     ctx.errorn=errorn;
     ctx.print = print;
+    ctx.printd = printd;
     ctx.getfch=getfch;
     ctx.sbi_user_funcs[0] = myfunc;
     ctx.sbi_user_funcs[1] = msgbox;

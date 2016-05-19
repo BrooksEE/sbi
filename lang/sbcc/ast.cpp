@@ -464,8 +464,14 @@ void DebugStmt::genCode(CodeCtx &ctx) {
 }
 
 void PrintStmt::genCode(CodeCtx& ctx) {
-  DEBUG ( cout << "print(" << m_str << ")" );
-  emit ( ctx, "print %s;\n" , m_str.c_str() );
+  if (m_expr) {
+    DEBUG ( cout << "print(" << *m_expr << ")" );   
+    m_expr->evalTo ( ctx, "_r0" );
+    emit ( ctx, "printd _r0\t\t\t\n" );
+  } else {
+    DEBUG ( cout << "print(" << m_str << ")" );
+    emit ( ctx, "print %s;\n" , m_str.c_str() );
+  }
 }
 
 void WaitStmt::genCode(CodeCtx &ctx) {

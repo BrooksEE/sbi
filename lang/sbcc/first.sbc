@@ -25,6 +25,10 @@ void main() {
   print ( "prog start\n" );
   print ( "\\\rgood \t\t\" 'line'\n" );
 
+  print ( "7+5=" );
+  print ( 7+5 );
+  print ("\n");
+ 
   int tId = thread(thread2);
   int tSome = thread(somethread);
   wait (tId);

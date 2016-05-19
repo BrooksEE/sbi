@@ -213,8 +213,11 @@ class DebugStmt : public Node {
 class PrintStmt : public Node {
   public:
   std::string m_str;
-  PrintStmt(const char* str) : m_str(str) {}
-  void genCode(CodeCtx &);
+  Expr *m_expr;
+  PrintStmt(const char* str) : m_str(str), m_expr(0) {}
+  PrintStmt(Expr *expr) : m_expr(expr) {} 
+  ~PrintStmt() { if (m_expr) delete m_expr; }
+   void genCode(CodeCtx &);
 };
 
 class WaitStmt : public Node {

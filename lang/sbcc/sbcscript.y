@@ -193,6 +193,7 @@ deberr:
 
 print:
     PRINT '(' STRVAR ')' { $$ = new PrintStmt ( $3 ); free($3); } 
+    | PRINT '(' expr ')' { $$ = new PrintStmt ( (Expr*)$3 ); }
     ;
 
 expr:

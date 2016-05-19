@@ -406,7 +406,7 @@ void DowhileStmt::genCode(CodeCtx &ctx) {
  DEBUG ( "do {" );
  int whileStart = CTX->NextLabel();
  int whileEnd = CTX->NextLabel();
- emit ( ctx, "label %d\t\t\t; do ", whileStart );
+ emit ( ctx, "label %d\t\t\t; do \n", whileStart );
  m_block->genCode(ctx);
  m_expr->evalTo(ctx,"_r0");
  emit ( ctx, "cmpjump 0 _r0 %d 0\t\t\t; if 0 jump to end while\n", whileEnd );

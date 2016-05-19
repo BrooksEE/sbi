@@ -69,6 +69,10 @@ void thread2 () {
         debug ( math ( 0xff, 1, c ) );
   }
 
+  do {
+     print ("Do while ok?\n" );
+  } while (0);
+
   c=5;
   int y=0;
   if ( c && y ) error(0xe1);

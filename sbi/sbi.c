@@ -365,9 +365,9 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
         case _istr_tob:
             val1 = _getval( var1t, var1, thread);
             val1 = rd == _istr_incr ? val1+1 :
-                  rd == _istr_decr ? val1-11 :
+                  rd == _istr_decr ? val1-1 :
                   rd == _istr_inv ? !val1 :
-                  rd == _istr_tob ? (val1?11:0) :
+                  rd == _istr_tob ? (val1?1:0) :
                   0;
             _setval(var1t,var1,val1,thread);
             return SBI_NOERROR;

@@ -236,151 +236,40 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 {
 
     uint8_t rd, var1t, var2t, var3t;
-    DTYPE var1, var2, var3;
-    int i;
+    DTYPE var1, var2, var3, val1, val2;
 
+    // reorder function to remove duplicated code (reduce code size)
 	rd = _getfch();
     _TRACE("Instruction code 0x%02x at pcount: 0x%02x thread %d\n", rd, CUR_PCOUNT-1, thread->threadid );
-	switch (rd)
-	{
-		case _istr_assign:
-            var1t= _getfch();
-			var1 = _getfch();
-			_setval(var1t,var1,_getfval(_getfch()), thread);
-			break;
-		case _istr_move:
-            var1t = _getfch();
-			var1 = _getfch();
-            var2t = _getfch();
-            var2 = _getfval(var2t);
-            _setval ( var1t, var1,
-                      _getval(var2t,var2, thread),
-                      thread );
-			break;
-		case _istr_add:
-		case _istr_sub:
-        case _istr_mul:
-        case _istr_div:
-        case _istr_cmp:
-        case _istr_high:
-        case _istr_low:
-        case _istr_lte:
-        case _istr_gte:
-	    {
-	    	DTYPE v1, v2, val;
 
-			var1t = _getfch();
-			var1 = _getfval(var1t);
-			var2t = _getfch();
-			var2 = _getfval(var2t);
-            var3t = _getfch();
-            var3 = _getfch();
-            v1=_getval(var1t,var1, thread); 
-            v2=_getval(var2t,var2, thread);
-            val = rd == _istr_add ? v1+v2 :
-                       rd == _istr_sub ? v1-v2 :
-                       rd == _istr_mul ? v1*v2 :
-                       rd == _istr_div ? v1/v2 :
-                       rd == _istr_cmp ? (v1==v2?1:0) :
-                       rd == _istr_high ? (v1>v2?1:0) :
-                       rd == _istr_low ? (v1<v2?1:0) :
-                       rd == _istr_lte ? (v1<=v2?1:0) :
-                       rd == _istr_gte ? (v1>=v2?1:0) :
-                       0;
-            _setval( var3t, var3, 
-                     val,
-                     thread );
-	    }
-			break;
-        case _istr_push:
-            if (thread->stackp>=STACK_SIZE-1) {
-                _error(SBI_STACK_OVERFLOW); // TODO error codes (overflow)
-                return SBI_PROG_ERROR;
-            }
-            var1t=_getfch();
-            var1 = _getfval(var1t);
-            thread->stack[thread->stackp++] = _getval(var1t,var1,thread);
-            break;
-        case _istr_pop:
+    // handle commands that don't need parameters.
+    // or need to handle them special
+    switch(rd) {
+		case _istr_pop:
             {
-	    	uint8_t n;
                 if (thread->stackp==0) {
                     _error(SBI_STACK_UNDERFLOW); // underflow
                     return SBI_PROG_ERROR;
                 }
-                n = _getfch();
+                val1 = _getfch();
                 --thread->stackp;
-                if (n) {
-                    DTYPE val = thread->stack[thread->stackp];
+                if (val1) {
+                    val2 = thread->stack[thread->stackp];
                     var1t=_getfch();
                     var1=_getfch();
-                    _setval(var1t,var1,val,thread);
+                    _setval(var1t,var1,val2,thread);
                 }
             }
-            break;
-		case _istr_incr:
-		case _istr_decr:
-        case _istr_inv:
-        case _istr_tob:
-            {
-	    	DTYPE val;
-                var1t=_getfch();
-                var1=_getfch();
-                val = _getval( var1t, var1, thread);
-                val = rd == _istr_incr ? val+1 :
-                      rd == _istr_decr ? val-1 :
-                      rd == _istr_inv ? !val :
-                      rd == _istr_tob ? (val?1:0) :
-                      0;
-                _setval(var1t,var1,val,thread);
-            }
-            break;
-		case _istr_jump:
-			var1t = _getfch();
-			var1 = _getfval(var1t);
-			if (_getfch() > 0)
-			{
-                _RETADDRS[thread->raddr_cnt++] = CUR_PCOUNT;
-			}
-			CUR_PCOUNT = _LABELS[_getval(var1t, var1, thread)];
-			break;
-		case _istr_cmpjump:
-			var1t = _getfch();
-			var1 = _getfval(var1t);
-			var2t = _getfch();
-			var2 = _getfval(var2t);
-			var3t = _getfch();
-			var3 = _getfch();
-            i=_getfch(); // push ret
-			if (_getval(var1t, var1, thread)==_getval(var2t, var2, thread))
-			{
-			    if (i > 0)
-			    {
-                    _RETADDRS[thread->raddr_cnt++] = CUR_PCOUNT;
-			    }
-				CUR_PCOUNT = _LABELS[_getval(var3t, var3, thread)];
-			} 
-			break;
-		case _istr_ret:
+            return SBI_NOERROR; 
+	    case _istr_ret:
             if (thread->raddr_cnt>0) {
 			    CUR_PCOUNT = _RETADDRS[--thread->raddr_cnt];
             } else {
                 // thread exit
                 return SBI_THREAD_EXIT;
             }
-			break;
-		case _istr_debug:
-			var1t = _getfch();
-            var1 = _getfval(var1t);
-			_debug(_getval(var1t, var1, thread));
-			break;
-		case _istr_error:
-			var1t = _getfch();
-            var1 = _getfval(var1t);
-			_error(_getval(var1t, var1, thread));
-			return SBI_PROG_ERROR;
-			break;
-        case _istr_print:
+		    return SBI_NOERROR;	
+		case _istr_print:
             { 
                 uint16_t strLoc = _getfch();
                 strLoc |= _getfch()<<8;
@@ -406,126 +295,247 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
                     CUR_PCOUNT = curp; 
                 }
             }
+            return SBI_NOERROR; 
+        case _istr_exit:
+			return SBI_PROG_EXIT;
+		case FOOTER_0:
+			if (_getfch()==FOOTER_1) return SBI_PROG_EOF; else return SBI_INSTR_ERROR;
+        default:
             break;
+    }
+
+    // next commands with least one variable
+    // set var1 depending on command type
+    switch (rd) {
+        // single byte commands
+        case _istr_assign:
+        case _istr_move:
+    	case _istr_incr:
+		case _istr_decr:
+        case _istr_inv:
+        case _istr_tob:
+        case _istr_intr:
+        case _istr_thread:
+        case _istr_wait:
+        case _istr_stop:
+        case _istr_alive:
+            var1t = _getfch();
+            var1 = _getfch();
+            break;
+        // variable byte values
+        case _istr_push:
+        case _istr_jump:
+        case _istr_cmpjump:
+        case _istr_debug:
+        case _istr_error:
         case _istr_printd:
-            {
-                var1t = _getfch();
-                var1 = _getfval(var1t);
-                if (rt->ctx->printd)
-                    _printd(_getval(var1t,var1,thread));
-            }
-            break;
-		case _istr_sint:
-			var1t = _getfch();
+        case _istr_sint:
+		case _istr_add:
+		case _istr_sub:
+        case _istr_mul:
+        case _istr_div:
+        case _istr_cmp:
+        case _istr_high:
+        case _istr_low:
+        case _istr_lte:
+        case _istr_gte:
+            var1t = _getfch();
             var1 = _getfval(var1t);
+            break;
+        default: // NOTE _istr_int allowed to pass through because 
+                 // _istr_intr needs to read the var1t,var1
+            break;
+    }
+
+    // now handle them
+    switch (rd) {
+   		case _istr_assign:
+			_setval(var1t,var1,_getfval(_getfch()), thread);
+		    return SBI_NOERROR;	
+        case _istr_push:
+            if (thread->stackp>=STACK_SIZE-1) {
+                _error(SBI_STACK_OVERFLOW); // TODO error codes (overflow)
+                return SBI_PROG_ERROR;
+            }
+            thread->stack[thread->stackp++] = _getval(var1t,var1,thread);
+            return SBI_NOERROR;
+    	case _istr_incr:
+		case _istr_decr:
+        case _istr_inv:
+        case _istr_tob:
+            val1 = _getval( var1t, var1, thread);
+            val1 = rd == _istr_incr ? val1+1 :
+                  rd == _istr_decr ? val1-11 :
+                  rd == _istr_inv ? !val1 :
+                  rd == _istr_tob ? (val1?11:0) :
+                  0;
+            _setval(var1t,var1,val1,thread);
+            return SBI_NOERROR;
+   		case _istr_jump:
+			if (_getfch() > 0)
+			{
+                _RETADDRS[thread->raddr_cnt++] = CUR_PCOUNT;
+			}
+			CUR_PCOUNT = _LABELS[_getval(var1t, var1, thread)];
+            return SBI_NOERROR;
+ 		case _istr_debug:
+			_debug(_getval(var1t, var1, thread));
+			return SBI_NOERROR;
+		case _istr_printd:
+            if (rt->ctx->printd)
+                _printd(_getval(var1t,var1,thread));
+            return SBI_NOERROR;
+        case _istr_error:
+			_error(_getval(var1t, var1, thread));
+			return SBI_PROG_ERROR;
+		case _istr_sint:
 			thread->_userfid=_getval(var1t, var1, thread);
-			break;
+            return SBI_NOERROR;
 		case _istr_int:
         case _istr_intr:
             {
-	    	uint8_t argc;
-		DTYPE *pvals=NULL, r;
+		        DTYPE *pvals=NULL, r;
                 // NOTE should parameters be pushed on the stack instead?
-                if (rd==_istr_intr) {
-                    var1t=_getfch();
-                    var1=_getfch();
-                }
-                argc = _getfch();
-                if (argc>0) {
-                    pvals = malloc(sizeof(DTYPE)*(argc));
+                val1 = _getfch();
+                if (val1>0) {
+                    pvals = malloc(sizeof(DTYPE)*(val1));
                     if (!pvals) return SBI_ALLOC_ERROR; 
                 }
-                for (i=0;i<argc;++i)
+                for (val2=0;val2<val1;++val2)
                 {
                     var2t = _getfch();
                     var2 = _getfval(var2t);
-                    pvals[i] = _getval(var2t,var2,thread);
+                    pvals[val2] = _getval(var2t,var2,thread);
                 }
-		r = RT->ctx->sbi_user_funcs[thread->_userfid](argc,pvals);
+		        r = RT->ctx->sbi_user_funcs[thread->_userfid](val1,pvals);
                 if (rd==_istr_intr) {
                     _setval(var1t,var1,r,thread);
                 }
                 if (pvals) free(pvals);
             }
-			break;
+		    return SBI_NOERROR;	
+        case _istr_wait:
+            {
+                val1 = _getval(var1t,var1,thread);
+                for (val2=0;val2<rt->thread_cnt;++val2) {
+                    if ( rt->_sbi_threads[val2]->threadid == val1 &&
+                         rt->_sbi_threads[val2]->status == RUNNING ) {
+                         CUR_PCOUNT-=3; // rerun wait
+                         break;
+                    }
+                }
+            }
+            return SBI_NOERROR; 
+        case _istr_stop:
+            {
+                val1 = _getval(var1t,var1,thread);
+                for (val2=0;val2<rt->thread_cnt;++val2) {
+                   if (rt->_sbi_threads[val2]->threadid == val1) {
+                      rt->_sbi_threads[val2]->status = STOPPED;
+                      break;
+                   }
+                }
+            }
+            return SBI_NOERROR; 
+    }
+
+
+    // now commands with two vars
+    var2t = _getfch();
+    switch (rd) {
+        case _istr_thread:
+        case _istr_alive:
+            var2 = _getfch();
+            break;
+        default:
+            var2 = _getfval(var2t);
+    }
+
+    switch (rd) {
+   		case _istr_move:
+            _setval ( var1t, var1,
+                      _getval(var2t,var2, thread),
+                      thread );
+            return SBI_NOERROR; 
         case _istr_thread:
             {
-	    	int ret;
-		uint8_t tId;
-                var1t = _getfch();
-                var1 = _getfch();
-                var2t = _getfch();
-                var2 = _getfch();
+	    	    int ret;
+		        uint8_t tId;
                 ret = _sbi_new_thread_at(_LABELS[_getval(var1t,var1,thread)], rt);
                 tId = !ret ? rt->new_threadid : 0;
                 _setval( var2t, var2, tId, thread );
                 if (ret) _error(ret);
                 return ret;
             }
-            break;
-        case _istr_wait:
-            {
-	        DTYPE tId;
-                var1t = _getfch();
-                var1 = _getfch();
-                tId = _getval(var1t,var1,thread);
-                for (i=0;i<rt->thread_cnt;++i) {
-                    if ( rt->_sbi_threads[i]->threadid == tId &&
-                         rt->_sbi_threads[i]->status == RUNNING ) {
-                         CUR_PCOUNT-=3; // rerun wait
-                         break;
-                    }
-                }
-            }
-            break;
+            return SBI_NOERROR; 
         case _istr_alive:
             {
-	    DTYPE tId, val;
-            var1t = _getfch();
-            var1 = _getfch();
-            var2t = _getfch();
-            var2 = _getfch();
-            tId = _getval(var1t,var1,thread);
-            val = 0; // not running
-            for (i=0;i<rt->thread_cnt;++i) {
-               if (rt->_sbi_threads[i]->threadid == tId &&
-                   rt->_sbi_threads[i]->status == RUNNING) {
-                   val=1;
+            uint8_t running=0;
+            val1 = _getval(var1t,var1,thread);
+            for (val2=0;val2<rt->thread_cnt;++val2) {
+               if (rt->_sbi_threads[val2]->threadid == val1 &&
+                   rt->_sbi_threads[val2]->status == RUNNING) {
+                   running=1;
                    break;
                }
             }
-            _setval(var2t,var2,val,thread);
+            _setval(var2t,var2,running,thread);
             }
-            break;
-        case _istr_stop:
-            {
-	    DTYPE tId;
-            var1t = _getfch();
-            var1 = _getfch();
-            tId = _getval(var1t,var1,thread);
-            for (i=0;i<rt->thread_cnt;++i) {
-               if (rt->_sbi_threads[i]->threadid == tId) {
-                  rt->_sbi_threads[i]->status = STOPPED;
-                  break;
-               }
-            }
-            }
-            break;
-		case _istr_exit:
-			return SBI_PROG_EXIT;
-			break;
-		case FOOTER_0:
-			if (_getfch()==FOOTER_1) return SBI_PROG_EOF; else return SBI_INSTR_ERROR;
-		default:
-			_error(SBI_INSTR_ERROR);
-            _error(rd);
-            _error(CUR_PCOUNT-1);
-            _ERR("Instruction error 0x%02x at pcount: 0x%02x thread %d\n", rd, CUR_PCOUNT-1, thread->threadid );
-			return SBI_PROG_ERROR;
-			break;
-	}
-	
-	return SBI_NOERROR;
+            return SBI_NOERROR; 
+    }
+
+    // last commands w/ 3 vars use byte for all
+    var3t = _getfch();
+    var3  = _getfch();
+
+	switch (rd)
+	{
+		case _istr_add:
+		case _istr_sub:
+        case _istr_mul:
+        case _istr_div:
+        case _istr_cmp:
+        case _istr_high:
+        case _istr_low:
+        case _istr_lte:
+        case _istr_gte:
+	        {
+                val1=_getval(var1t,var1, thread); 
+                val2=_getval(var2t,var2, thread);
+                val1 = rd == _istr_add ? val1+val2 :
+                           rd == _istr_sub ? val1-val2 :
+                           rd == _istr_mul ? val1*val2 :
+                           rd == _istr_div ? val1/val2 :
+                           rd == _istr_cmp ? (val1==val2?1:0) :
+                           rd == _istr_high ? (val1>val2?1:0) :
+                           rd == _istr_low ? (val1<val2?1:0) :
+                           rd == _istr_lte ? (val1<=val2?1:0) :
+                           rd == _istr_gte ? (val1>=val2?1:0) :
+                           0;
+                _setval( var3t, var3, 
+                         val1,
+                         thread );
+	        }
+		    return SBI_NOERROR;
+		case _istr_cmpjump:
+            val1=_getfch(); // push ret
+			if (_getval(var1t, var1, thread)==_getval(var2t, var2, thread))
+			{
+			    if (val1 > 0)
+			    {
+                    _RETADDRS[thread->raddr_cnt++] = CUR_PCOUNT;
+			    }
+				CUR_PCOUNT = _LABELS[_getval(var3t, var3, thread)];
+			} 
+			return SBI_NOERROR;
+    }
+
+    // unhandled
+	_error(SBI_INSTR_ERROR);
+    _error(rd);
+    _error(CUR_PCOUNT-1);
+    _ERR("Instruction error 0x%02x at pcount: 0x%02x thread %d\n", rd, CUR_PCOUNT-1, thread->threadid );
+	return SBI_PROG_ERROR;
 }
 
 

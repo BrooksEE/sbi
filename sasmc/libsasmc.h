@@ -10,7 +10,8 @@ int sasmc (
     const std::string &src,
     const std::string &dst,
     bool silent,
-    bool clean );
+    bool clean,
+    bool verbose );
     
 
 #endif

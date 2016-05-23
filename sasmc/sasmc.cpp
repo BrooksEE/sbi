@@ -29,6 +29,7 @@ int main (int argc, char** argv)
 {
 	bool silent=false;
 	bool clean=false;
+	bool verbose=false;
 	
 	if(cmdOptionExists(argv, argv+argc, "-i")==false)
 	{
@@ -37,6 +38,7 @@ int main (int argc, char** argv)
 		printf("-i input.sasm\t\tSASM assembly file to compile\n");
 		printf("-o output.sbi\t\tSBI output filename\n");
 		printf("-s\t\t\tSilent mode\n");
+		printf("-v\t\t\tVerbose mode\n");
 		printf("-cl\t\t\tClean non-SBI files used during compilation\n");
 		return 1;
 	}
@@ -53,6 +55,7 @@ int main (int argc, char** argv)
 
 	if(cmdOptionExists(argv, argv + argc, "-s")) silent = true;
 	if(cmdOptionExists(argv, argv + argc, "-cl")) clean = true;
+	if(cmdOptionExists(argv, argv + argc, "-v")) verbose = true;
 	
-	return sasmc (inname, outname, silent, clean);
+	return sasmc (inname, outname, silent, clean, verbose);
 }

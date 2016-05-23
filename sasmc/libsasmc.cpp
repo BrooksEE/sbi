@@ -44,6 +44,7 @@ class sasmc_ctx_t {
     map<int,int> print_strloc_map; // location of print statements.
     long progln;
     string prgname;
+    bool verbose;
     sasmc_ctx_t() :
         linen(1),
         labelsn(0),
@@ -214,6 +215,16 @@ int pline(string command, vector<string>& args, sasmc_ctx_t& ctx)
     int argn=args.size();
 	vector<uint8_t> argt(argn);
 	vector<uint32_t> argv(argn);
+	
+	if (ctx.verbose) {
+	   printf ( "Command: %s Args: " , command.c_str() );
+	   for (vector<string>::iterator itr = args.begin();
+	                                 itr != args.end();
+	                                 ++itr ) {
+          printf ( " %s", itr->c_str() );
+       }
+       printf ( "\n" );
+	}
 
 	int i=0;
 	int p=0;
@@ -450,7 +461,8 @@ int sasmc (
     const std::string &src,
     const std::string &dst,
     bool silent,
-    bool clean ) {
+    bool clean,
+    bool verbose ) {
     
     if (!instructions.size()) {
         // todo maybe better way to do this
@@ -495,6 +507,7 @@ int sasmc (
 	fstream file(src.c_str(), ios::in);
 
  	ctx.prgname = dst + ".prg";
+ 	ctx.verbose = verbose;
 
  	ctx.f.open(dst.c_str(), ios::out | ios::binary);
  	ctx.fp.open(ctx.prgname.c_str(), ios::out | ios::binary);

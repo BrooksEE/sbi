@@ -262,7 +262,7 @@ int pline(string command, vector<string>& args, sasmc_ctx_t& ctx)
         {
             bool base16 = args[i].size()>2 &&
                           args[i].substr(0,2).compare("0x")==0;
-			argv[p]=strtol(args[i].c_str(),NULL, base16?16:10);
+			argv[p]=strtoul(args[i].c_str(),NULL, base16?16:10);
             if (argv[p]<=0xff) argt[p] = _value8;
             else if (argv[p]<=0xffff) argt[p] = _value16;
             else argt[p] = _value32;

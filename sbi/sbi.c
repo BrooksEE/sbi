@@ -95,6 +95,9 @@ DTYPE _getval(uint8_t type, DTYPE val, void* t)
     SBITHREAD *thread=(SBITHREAD*)t;
 	if (type==_varid) return thread->_t[val];
     if (type==_regid) return thread->_r[val];
+    if (type==_stackid || type==_stackvid) return thread->stack[val];
+    if (type==_stackpid) return thread->stackp-1; // because it's 0 based and it's pointing to the empty
+                                                  // spot.  So if the stack is empty sp is -1
     return val;
 }
 
@@ -116,6 +119,15 @@ unsigned int _setval(uint8_t type, uint8_t num, DTYPE val, void* t)
     }
     if (type==_regid) {
         thread->_r[num]=val;
+        return 0;
+    }
+    if (type==_stackid || type==_stackvid) {
+        thread->stack[num] = val;
+        return 0;
+    }
+    
+    if (type==_stackpid) {
+        thread->stackp=val+1;
         return 0;
     }
 
@@ -209,10 +221,14 @@ sbi_error_t _sbi_new_thread_at(PCOUNT p, sbi_runtime_t* rt) {
 }
 
 DTYPE _sbi_getfval(uint8_t type, SBITHREAD* thread, sbi_runtime_t* rt) {
-    DTYPE val = _getfch();
+    DTYPE val;
+    if (type==_stackpid)
+        return 0; // no val for _stackp
+    val = _getfch();
     switch (type) {
         case _regid:
         case _varid:
+        case _stackid:
         case _value8:
             break;
         case _value16:
@@ -222,6 +238,14 @@ DTYPE _sbi_getfval(uint8_t type, SBITHREAD* thread, sbi_runtime_t* rt) {
             val |= (DTYPE)_getfch() << 16;
             val |= (DTYPE)_getfch() << 24;
             break;
+        case _stackvid:
+            // have to get the val from a variable
+            {
+                // val is the offset type in this case
+                DTYPE offset_val = _sbi_getfval(val, thread, rt);
+                // now val is the value stored at the offset
+                val = _getval(val, offset_val, thread );
+            }
     }
     return val;
 }
@@ -256,7 +280,7 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
                 if (val1) {
                     val2 = thread->stack[thread->stackp];
                     var1t=_getfch();
-                    var1=_getfch();
+                    var1=_getfval(var1t);
                     _setval(var1t,var1,val2,thread);
                 }
             }
@@ -307,7 +331,6 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
     // next commands with least one variable
     // set var1 depending on command type
     switch (rd) {
-        // single byte commands
         case _istr_assign:
         case _istr_move:
     	case _istr_incr:
@@ -319,10 +342,6 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
         case _istr_wait:
         case _istr_stop:
         case _istr_alive:
-            var1t = _getfch();
-            var1 = _getfch();
-            break;
-        // variable byte values
         case _istr_push:
         case _istr_jump:
         case _istr_cmpjump:
@@ -442,14 +461,7 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 
     // now commands with two vars
     var2t = _getfch();
-    switch (rd) {
-        case _istr_thread:
-        case _istr_alive:
-            var2 = _getfch();
-            break;
-        default:
-            var2 = _getfval(var2t);
-    }
+    var2 = _getfval(var2t);
 
     switch (rd) {
    		case _istr_move:
@@ -486,7 +498,7 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 
     // last commands w/ 3 vars use byte for all
     var3t = _getfch();
-    var3  = _getfch();
+    var3  = _getfval(var3t);
 
 	switch (rd)
 	{

@@ -12,13 +12,21 @@ pop _r0;
 pop _r1;
 
 add _r0 _r1 _r2;
+print "stack pos in func ";
+printd _sp;
+print "\n";
+print "stack 0 ";
+printd _s0;
+print " stack 1 ";
+printd _s1;
+print "\n";
 push _r2;
 ret;
 
 label 2; program main
 
-assign _r0 0xab; // some arbitrary value we care greatly about
-assign _r1 0xcd; // another value
+move _r0 0xab; // some arbitrary value we care greatly about
+move _r1 0xcd; // another value
 push _r0; // store that off since label1 destroyes it
 push _r1; 
 
@@ -32,6 +40,8 @@ pop _r0; // restore _r0
 debug _r0;
 debug _r1;
 debug _r3;
+print "final stack pos ";
+printd _sp
 exit;
 
 

@@ -185,28 +185,108 @@ void _cerror(string command, CERRORTYPE type, sasmc_ctx_t &ctx)
 }
 
 // helper compare argt[i] for _varid or _regid
-#define VARORREG(i) (argt[i]==_varid||argt[i]==_regid)
-#define CONST(i) ((argt[i]&0xF0)==0xF0)
+#define VARORREG(i) ((argv[i].type&0x80)==0x80)
+#define CONST(i) ((argv[i].type&0x40)==0x40)
+
+#define WV32(t,val) do {\
+      wb(val & 0xFF); \
+      if (t != _value16 && t != _value32) break; \
+      wb((val >>8) & 0xFF); \
+      if (t == _value16) break; \
+      wb((val >>16) & 0xFF); \
+      wb((val >>24) & 0xFF); \
+    } while (0) 
 
 #define WVAL(i) do {\
-            wb(argt[i]);\
-            switch(argt[i]) {\
-               case _regid:\
+            wb(argv[i].type);\
+            switch(argv[i].type) {\
+               case _stackid:\
                case _varid:\
-                  wb(argv[i]); \
+               case _regid: \
+                  wb(argv[i].iVal); \
                   break;\
+               case _stackpid: \
+                  break;\
+               case _stackvid: \
+                  wb(argv[i].vType); \
+                  WV32(argv[i].vType, argv[i].vVal); \
+                  break; \
                case _value8:\
                case _value16: \
                case _value32: \
-                  wb(argv[i] & 0xFF); \
-                  if (argt[i] == _value8) break; \
-                  wb((argv[i]>>8) & 0xFF); \
-                  if (argt[i] == _value16) break; \
-                  wb((argv[i]>>16) & 0xFF); \
-                  wb((argv[i]>>24) & 0xFF); \
+                  WV32(argv[i].type, argv[i].iVal); \
                   break; \
             }\
        } while(0)
+
+
+struct argv_t {
+  uint8_t type;
+  uint32_t iVal;
+  uint8_t vType; // for stackvid
+  uint32_t vVal;
+};
+
+argv_t parseInt(string token) {
+    bool base16 = token.size()>2 &&
+                  token.substr(0,2).compare("0x")==0;
+    argv_t v;
+    v.iVal = strtoul(token.c_str(),NULL, base16?16:10);
+    if (v.iVal<=0xff) v.type = _value8;
+    else if (v.iVal<=0xffff) v.type = _value16;
+    else v.type = _value32;
+    return v;
+}
+
+argv_t parseNonString(string token) {
+    argv_t v;
+    
+    switch (token[0] ) {
+        case '_':
+            switch (token[1]) {
+                case 't': 
+                    v.type=_varid;
+                    {
+                      argv_t tmp=parseInt(token.substr(2));
+                      v.iVal=tmp.iVal;
+                    }
+                    break;
+                case 'r':
+                    v.type=_regid;
+                    {
+                        argv_t tmp=parseInt(token.substr(2));
+                        v.iVal=tmp.iVal;
+                    }
+                    break;
+                case 's': 
+                    switch (token[2]) {
+                        case 'p': 
+                            v.type=_stackpid;
+                            break;
+                        case '+': 
+                            v.type=_stackvid;
+                            {
+                                argv_t tmp=parseNonString(token.substr(3));
+                                v.vType = tmp.type;
+                                v.vVal = tmp.iVal;
+                                break;
+                            }
+                        default:
+                            v.type=_stackid;
+                            {
+                                argv_t tmp=parseInt(token.substr(2));
+                                v.iVal=tmp.iVal;
+                            }
+                            break;
+                    }
+            }
+            return v;
+            break;
+        default:
+            return parseInt(token);
+    }
+        
+}    
 
 /*
 	Compilation functions
@@ -214,8 +294,7 @@ void _cerror(string command, CERRORTYPE type, sasmc_ctx_t &ctx)
 int pline(string command, vector<string>& args, sasmc_ctx_t& ctx)
 {
     int argn=args.size();
-	vector<uint8_t> argt(argn);
-	vector<uint32_t> argv(argn);
+	vector<argv_t> argv(argn);
 	
 	if (ctx.verbose) {
 	   printf ( "Command: %s Args: " , command.c_str() );
@@ -227,8 +306,6 @@ int pline(string command, vector<string>& args, sasmc_ctx_t& ctx)
        printf ( "\n" );
 	}
 
-	int i=0;
-	int p=0;
     if (command == "print") {
         if (argn != 1) { cerror(command,WRONGNUM); return 1; }
         string val=args.front();
@@ -248,28 +325,11 @@ int pline(string command, vector<string>& args, sasmc_ctx_t& ctx)
         return 0;
     }
 
-	for (i=0; i<argn; i++)
+	for (int i=0; i<argn; i++)
 	{
-		if ((args[i][0]=='_')&&
-            ((args[i][1]=='t') ||
-             (args[i][1]=='r'))
-           )
-		{
-			string s=args[i].substr(2);
-			argt[p]=args[i][1]=='t'?_varid:_regid;
-			argv[p]=atoi(s.c_str());
-			p++;
-		} else 
-        {
-            bool base16 = args[i].size()>2 &&
-                          args[i].substr(0,2).compare("0x")==0;
-			argv[p]=strtoul(args[i].c_str(),NULL, base16?16:10);
-            if (argv[p]<=0xff) argt[p] = _value8;
-            else if (argv[p]<=0xffff) argt[p] = _value16;
-            else argt[p] = _value32;
-			p++;
-		}
+	    argv[i] = parseNonString(args[i]);
 	}
+	
 	if (command.compare("assign")==0)
 	{
 		if (argn!=2) { cerror(command, WRONGNUM); return 1; }
@@ -335,24 +395,23 @@ int pline(string command, vector<string>& args, sasmc_ctx_t& ctx)
 		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
 		if (!VARORREG(0)) { cerror(command, WRONGTYPE); return 1; }
 		wb(instructions[command]);
-        wb(argt[0]);
-		wb(argv[0]);
+		WVAL(0);
 		return 0;
 	}
 	if (command.compare("label")==0)
 	{
 		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
 		if (!CONST(0)) { cerror(command, WRONGTYPE); return 1; }
-		ctx.labels[argv[0]] = ctx.progln;
-		if ((argv[0]+1) > ctx.labelsn) ctx.labelsn = argv[0]+1;
+		ctx.labels[argv[0].iVal] = ctx.progln;
+		if ((argv[0].iVal+1) > ctx.labelsn) ctx.labelsn = argv[0].iVal+1;
 		return 0;
 	}
 	if (command.compare("sig")==0)
 	{
 		if (argn!=1) { cerror(command, WRONGNUM); return 1; }
 		if (!CONST(0)) { cerror(command, WRONGTYPE); return 1; }
-		ctx.interrupts[argv[0]] = ctx.progln;
-		if ((argv[0]+1) > ctx.interruptsn) ctx.interruptsn = argv[0]+1;
+		ctx.interrupts[argv[0].iVal] = ctx.progln;
+		if ((argv[0].iVal+1) > ctx.interruptsn) ctx.interruptsn = argv[0].iVal+1;
 		return 0;
 	}
 	if (command.compare("jump")==0)
@@ -361,7 +420,7 @@ int pline(string command, vector<string>& args, sasmc_ctx_t& ctx)
 		if (!CONST(1)) { cerror(command, WRONGTYPE); return 1; }
 		wb(_istr_jump);
         WVAL(0);
-		wb(argv[1]); // note leaving as one byte since it's really just a 1 or 0
+		wb(argv[1].iVal); // note leaving as one byte since it's really just a 1 or 0
 		return 0;
 	}
 	if (command.compare("cmpjump")==0)
@@ -372,7 +431,7 @@ int pline(string command, vector<string>& args, sasmc_ctx_t& ctx)
         WVAL(0);
         WVAL(1);
         WVAL(2);
-		wb(argv[3]);
+		wb(argv[3].iVal);
 		return 0;
 	}
 	if (command.compare("ret")==0)

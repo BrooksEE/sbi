@@ -45,6 +45,7 @@ class sasmc_ctx_t {
     long progln;
     string prgname;
     bool verbose;
+    bool silent;
     sasmc_ctx_t() :
         linen(1),
         labelsn(0),
@@ -273,6 +274,7 @@ int pline(string command, vector<string>& args, sasmc_ctx_t& ctx)
 	{
 		if (argn!=2) { cerror(command, WRONGNUM); return 1; }
 		if (!VARORREG(0) || !CONST(1)) { cerror(command, WRONGTYPE); return 1; }
+		if (!ctx.silent) printf ( "assign instruction is depricated.  Use move.\n" );
 		wb(_istr_assign);
         WVAL(0);
         WVAL(1);
@@ -508,6 +510,7 @@ int sasmc (
 
  	ctx.prgname = dst + ".prg";
  	ctx.verbose = verbose;
+ 	ctx.silent = silent;
 
  	ctx.f.open(dst.c_str(), ios::out | ios::binary);
  	ctx.fp.open(ctx.prgname.c_str(), ios::out | ios::binary);

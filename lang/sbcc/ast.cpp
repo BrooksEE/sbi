@@ -52,9 +52,15 @@ class CtxImpl {
     }
     void PopVarCtx() {
        VarCtx* back=varScope.back();
+       for ( VarCtx::iterator itr = back->begin();
+             itr != back->end();
+             ++itr ) {           
+           if (itr->second.substr(0,2) == "_r")  {
+               --regStack;
+               //ostr_err << "(scope " << varScope.size() << ") remove " << itr->first << " new regstack " << (int)regStack << endl;
+           }
+       }
        varScope.pop_back();
-       if (back->size()) // if 0 then we don't use regs
-          regStack -= back->size();
        delete back;
     }
     VarCtx* CurVarCtx() { return varScope.back(); } 
@@ -77,16 +83,29 @@ class CtxImpl {
            snprintf(rbuf,5,"_t%d", nextGlobal++);
        } else {
           // put variable in current scope. 
-          if (regStack>15) { // TODO maybe get rid of register concept and just use the stack.
-               error ( "Too many local variables." );
+          if (regStack>15) {
+               error ("Too many local variables." );
           }
-          snprintf(rbuf,5,"_r%d",regStack++);
+          snprintf(rbuf,5,"_r%u",regStack++);
        }
        (*ctx)[var] = string(rbuf);
        
     }
 
+    
+    void AddParam(const string &var, const string &loc) {
+        VarCtx* ctx = CurVarCtx();
+       // if has already error
+       if (ctx->count(var)>0) {
+            error ( "Variable (%s) already defined.", var.c_str() );
+       }
+       
+       (*ctx)[var] = loc;
+        
+    }
+    
     string FindVarLoc(const string &var) {
+
        VarScope::reverse_iterator itr;
        for (itr=varScope.rbegin();
             itr<varScope.rend();
@@ -266,6 +285,18 @@ Block::~Block() {
   delete m_stmts;
 }
 
+/*
+ Calling convention: 
+    Set _r0 to _sp (before pushing params)
+    Push params order=left to right
+    
+    function then uses _r0 to set local reg values
+        
+    Param 1 is _s+_r2
+    Param 2 is _s+_r3 etc
+    
+    function does not push or pop the calling registers.
+*/
 
 void Function::genCode(CodeCtx &ctx) {
   DEBUG ( cout << "function " << m_name << '(' );
@@ -276,26 +307,26 @@ void Function::genCode(CodeCtx &ctx) {
      cout << ')' );
 
   int funcStart = CTX->GetFunctionLoc(m_name);
-  emit ( ctx, "label %d\t\t\t; function %s\n", funcStart, m_name.c_str() );
-  CTX->PushVarCtx(); 
-
+  emit ( ctx, "label %u\t\t\t; function %s\n", funcStart, m_name.c_str() );
+  CTX->PushVarCtx();
+  
   if (m_name == "main" && m_args->size())
     CTX->error ( "Function main does not take arguments." );
 
   for (FunctionArgList::iterator itr = m_args->begin();
        itr < m_args->end();
        ++itr) {
-       CTX->AddVar(*itr);
-  }
-  for (FunctionArgList::reverse_iterator itr = m_args->rbegin();
-       itr < m_args->rend();
-       ++itr) {
-       string loc = CTX->FindVarLoc(*itr);
-       emit ( ctx, "pop %s\t\t\t; arg %s\n", loc.c_str(), itr->c_str() ); 
+       string var_ptr = string("__ptr_") + *itr;
+       CTX->AddVar (var_ptr);
+       string var_loc = CTX->FindVarLoc( var_ptr);
+       CTX->AddParam((*itr), string("_s+")+var_loc);
+       emit ( ctx, "incr _r0\t\t\t; %s loc\n", (*itr).c_str() );
+       emit ( ctx, "move %s _r0\t\t\t; %s loc\n", var_loc.c_str(), (*itr).c_str() );
   }
   CTX->cur_func = this;
   m_block->genCode(ctx);
   CTX->PopVarCtx();
+  
   // is last statement a return
   bool ret=true;
   if (m_block->m_stmts->size()) {
@@ -631,17 +662,35 @@ FuncExpr::~FuncExpr() {
   delete m_args;
 }
 
+#define func_pre() \
+   for (int i=2;i<CTX->regStack;++i) {\
+      emit ( ctx, "push _r%u\t\t\t; save local var\n", i );\
+   }
+#define func_post() \
+ for (int i=0;i<m_args->size();++i) \
+    emit (ctx, "pop\t\t\t; ignore stack used for func arg\n" ); \
+ for (int i=CTX->regStack-1;i>=2;--i) \
+    emit (ctx, "pop _r%u\t\t\t; restore reg\n", i );
+
 void FuncExpr::genCall(CodeCtx &ctx) {
+
+
+   func_pre();
    
-   // push args in reverse order
-   for (FunctionCallArgList::reverse_iterator itr = m_args->rbegin();
-        itr < m_args->rend();
+   for (FunctionCallArgList::iterator itr = m_args->begin();
+        itr < m_args->end();
         ++itr) {
         (*itr)->evalTo(ctx, "_r0");
         emit ( ctx, "push _r0\t\t\t; function argument\n" );
    }
+   // push args
+   // call convention is to save _sp in _r0 for n params
+   if (m_args->size()) {
+    emit ( ctx, "sub _sp %u _r0\t\t\t; stack loc of param start\n", m_args->size() );
+   }    
+   
    int funcLabel = CTX->GetFunctionLoc(m_name);
-   emit ( ctx, "jump %d 1\t\t\t; call %s\n", funcLabel, m_name.c_str() );
+   emit ( ctx, "jump %u 1\t\t\t; call %s\n", funcLabel, m_name.c_str() );
   
 }
 
@@ -650,17 +699,21 @@ void FuncExpr::genCode(CodeCtx &ctx) {
  genCall(ctx); 
  int type = CTX->GetFunctionRet(m_name);
  if (type) emit ( ctx, "pop\t\t\t; ignoring func ret value.\n" );
+ func_post();
 }
 
 void FuncExpr::evalTo(CodeCtx &ctx, const string &target) {
    genCall(ctx);
    int type = CTX->GetFunctionRet(m_name);
    if (type) 
-      emit ( ctx, "pop %s\t\t\t; func result\n", target.c_str() );
+      emit ( ctx, "pop _r0\t\t\t; func result\n" );
    else {
       CTX->warning ( "function (%s) does not return a value.", m_name.c_str() );
       emit ( ctx, "move %s 0\t\t\t; void func used in expression\n", target.c_str() );
    }
+   func_post();
+   if (target != "_r0")
+       emit ( ctx, "move %s _r0\t\t\t; func call end\n", target.c_str() );
 }
 
 void ThreadExpr::genCode(CodeCtx &ctx) {

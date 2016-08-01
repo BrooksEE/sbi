@@ -260,7 +260,7 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 {
 
     uint8_t rd, var1t, var2t, var3t;
-    DTYPE var1, var2, var3, val1, val2;
+    DTYPE var1, var2, var3, val1, val2, val3;
 
     // reorder function to remove duplicated code (reduce code size)
 	rd = _getfch();
@@ -496,57 +496,72 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
             return SBI_NOERROR; 
     }
 
-    // last commands w/ 3 vars use byte for all
     var3t = _getfch();
     var3  = _getfval(var3t);
-
-	switch (rd)
-	{
-		case _istr_add:
-		case _istr_sub:
-        case _istr_mul:
-        case _istr_div:
-        case _istr_cmp:
-        case _istr_high:
-        case _istr_low:
-        case _istr_lte:
-        case _istr_gte:
-	        {
-                val1=_getval(var1t,var1, thread); 
-                val2=_getval(var2t,var2, thread);
-                val1 = rd == _istr_add ? val1+val2 :
-                           rd == _istr_sub ? val1-val2 :
-                           rd == _istr_mul ? val1*val2 :
-                           rd == _istr_div ? val1/val2 :
-                           rd == _istr_cmp ? (val1==val2?1:0) :
-                           rd == _istr_high ? (val1>val2?1:0) :
-                           rd == _istr_low ? (val1<val2?1:0) :
-                           rd == _istr_lte ? (val1<=val2?1:0) :
-                           rd == _istr_gte ? (val1>=val2?1:0) :
-                           0;
-                _setval( var3t, var3, 
-                         val1,
-                         thread );
-	        }
-		    return SBI_NOERROR;
-		case _istr_cmpjump:
-            val1=_getfch(); // push ret
-			if (_getval(var1t, var1, thread)==_getval(var2t, var2, thread))
-			{
-			    if (val1 > 0)
-			    {
-                    _RETADDRS[thread->raddr_cnt++] = CUR_PCOUNT;
-			    }
-				CUR_PCOUNT = _LABELS[_getval(var3t, var3, thread)];
-			} 
-			return SBI_NOERROR;
+    val1=_getval(var1t,var1, thread); 
+    val2=_getval(var2t,var2, thread);
+    
+    if (rd==_istr_cmpjump) {
+        val3=_getfch(); // push ret
+		if (val1==val2)
+		{
+		    if (val3 > 0)
+		    {
+                _RETADDRS[thread->raddr_cnt++] = CUR_PCOUNT;
+		    }
+			CUR_PCOUNT = _LABELS[_getval(var3t, var3, thread)];
+		} 
+		return SBI_NOERROR;
+       
+    } else {
+        // all that's left is math
+	    switch (rd)
+	    {
+		    case _istr_add:
+		        val3=val1+val2;
+		        break;
+		    case _istr_sub:
+		        val3=val1-val2;
+		        break;
+            case _istr_mul:
+                val3=val1*val2;
+                break;
+            case _istr_div:
+                if (!val2) {
+                    _error(SBI_DIV_BY_0);
+                    return SBI_PROG_ERROR;
+                }
+                val3=val1/val2;
+                break;
+            case _istr_cmp:
+                val3=val1==val2 ? 1 : 0;
+                break;
+            case _istr_high:
+                val3=val1>val2 ? 1 : 0;
+                break;
+            case _istr_low:
+                val3=val1<val2 ? 1 : 0;
+                break;
+            case _istr_lte:
+                val3=val1<=val2 ? 1 : 0;
+                break;
+            case _istr_gte:
+                val3=val1>=val2 ? 1 : 0;
+                break;
+            default:
+                // unhandled
+	            _error(SBI_INSTR_ERROR);
+                _error(rd);
+                _error(CUR_PCOUNT-1);
+                _ERR("Instruction error 0x%02x at pcount: 0x%02x thread %d\n", rd, CUR_PCOUNT-1, thread->threadid );
+            	return SBI_PROG_ERROR;
+        }            
+        _setval( var3t, var3, 
+                 val3,
+                 thread );
+	    return SBI_NOERROR;        
     }
 
-    // unhandled
-	_error(SBI_INSTR_ERROR);
-    _error(rd);
-    _error(CUR_PCOUNT-1);
-    _ERR("Instruction error 0x%02x at pcount: 0x%02x thread %d\n", rd, CUR_PCOUNT-1, thread->threadid );
 	return SBI_PROG_ERROR;
 }
 

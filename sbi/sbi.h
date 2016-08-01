@@ -114,6 +114,7 @@
       SBI_PROG_ERROR,  // program runtime error
       SBI_STACK_OVERFLOW, // push called when stack is full
       SBI_STACK_UNDERFLOW, // pop called when stack is empty
+      SBI_DIV_BY_0,    // divice by 0
       SBI_INSTR_ERROR, // unrecognized instruction
       SBI_THREAD_MAX, // attempt to allocate more than max threads
       SBI_NOT_RUNNING, // returned by sbi step if all threads have exited.

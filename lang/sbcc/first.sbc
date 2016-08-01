@@ -7,8 +7,44 @@ void _debug(int val) {
   debug(val);
 }
 
+// add one to c
+//   return c/(a+b)
+// 
 int math(int a, int b, int c) {
-   return c/(a+b);
+
+   c=c+1;
+
+   int ret=c/(a+b);
+
+   //c=a+b; 
+   print ( "ret " );
+   print ( ret );
+   print ( "\n" );
+
+   return ret;
+}
+
+void testMath() {
+    if (math( 3, 10, 103 ) != 8) { 
+     print ("unexpected math result "); 
+     print ( math ( 3, 10, 103 ) );
+     print ( "\n" );
+     error(0xee);
+    }
+
+   // uncomment to test div by 0
+   //int broke=1/0;
+
+   if ( 1<0 ) error (0xe1);
+   if ( 0>1 ) error (0xe2);
+   if ( 1<=0 ) error ( 0xe3);
+   if ( 0>=1) error ( 0xe4);
+   if ( 10+10 != 20) error (0xe5);
+   if ( 20-10 != 10) error (0xe6);
+   if ( 10*10 != 100) error (0xe7);
+   if ( 100/20 != 5) error(0xe8);
+   if ( 5==5 != 1 ) error (0xe9);
+
 }
 
 void somethread() {
@@ -19,15 +55,21 @@ void somethread() {
 
 int ignore;
 
-// main
-void main() {
-
+void testPrint() {
   print ( "prog start\n" );
   print ( "\\\rgood \t\t\" 'line'\n" );
 
   print ( "7+5=" );
   print ( 7+5 );
   print ("\n");
+
+}
+
+// main
+void main() {
+
+  testPrint();
+  testMath();
  
   int tId = thread(thread2);
   int tSome = thread(somethread);
@@ -36,16 +78,13 @@ void main() {
 
   //thread(thread2); // if you don't save the thread id prog exits 
                      // before thread2 does much.
-  int c=0;
-  while(c<10) {
-     c = c+ 1;
-  }
-  _debug (c);
 
   // call a couple user funcs
   user0 ( (c+3), c-3, 7+5 );
-  int tmp = user2 () + 3;
-  debug ( tmp );
+  int tmp = user2 ();
+  print ( "user entered: " );
+  print ( tmp );
+  print ( "\n" );
 
   if (is_running(tSome)) {
     stop(tSome);
@@ -65,8 +104,7 @@ void thread2 () {
      c = c-1;
      if (c<3) {
         debug(c);
-     } else 
-        debug ( math ( 0xff, 1, c ) );
+     }
   }
 
   do {

@@ -494,7 +494,7 @@ void DebugStmt::genCode(CodeCtx &ctx) {
   emit ( ctx, "%s _r0\n", m_call.c_str() );
 }
 
-void PrintStmt::genCode(CodeCtx& ctx) {
+void PrintArg::genCode(CodeCtx& ctx) {
   if (m_expr) {
     DEBUG ( cout << "print(" << *m_expr << ")" );   
     m_expr->evalTo ( ctx, "_r0" );
@@ -503,6 +503,29 @@ void PrintStmt::genCode(CodeCtx& ctx) {
     DEBUG ( cout << "print(" << m_str << ")" );
     emit ( ctx, "print %s;\n" , m_str.c_str() );
   }
+}
+
+void PrintStmt::genCode(CodeCtx& ctx) {
+    if (m_args->size()) {
+        for (PrintArgList::iterator itr=m_args->begin();
+                                    itr!=m_args->end();
+                                    ++itr) {
+            (*itr)->genCode(ctx);
+        }
+    }
+    else {
+        DEBUG ( "print()" );
+        emit (ctx, "print \"\\n\";\n" );
+    }
+}
+
+PrintStmt::~PrintStmt() {
+    for (PrintArgList::iterator itr=m_args->begin();
+                                itr!=m_args->end();
+                                ++itr) {
+        delete *itr;
+    }
+    delete m_args;
 }
 
 void WaitStmt::genCode(CodeCtx &ctx) {

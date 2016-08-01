@@ -60,8 +60,7 @@ void testPrint() {
   print ( "\\\rgood \t\t\" 'line'\n" );
 
   print ( "7+5=" );
-  print ( 7+5 );
-  print ("\n");
+  print ( 7+5, "\n", "can print multiple args now\n" );
 
 }
 

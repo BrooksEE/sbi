@@ -12,6 +12,7 @@ class Node;
 class VarDec;
 class Function;
 class Expr;
+class PrintArg;
 
 
 enum Oper {
@@ -34,6 +35,7 @@ typedef std::vector<Node*> Stmts;
 typedef std::vector<Function*> FunctionList;
 typedef std::vector<std::string> FunctionArgList;
 typedef std::vector<Expr*> FunctionCallArgList;
+typedef std::vector<PrintArg*> PrintArgList;
 
 class CodeCtx {
   public:
@@ -107,6 +109,16 @@ class Function : public Node {
     m_block(block) {}
   ~Function() { delete m_args; delete m_block; }
 
+  void genCode(CodeCtx &);
+};
+
+class PrintArg : public Node {
+  public:
+  std::string m_str; 
+  Expr *m_expr;
+  PrintArg (const char* str) : m_str(str), m_expr(0) {}
+  PrintArg (Expr* expr ) : m_expr(expr) {} 
+  ~PrintArg() { if (m_expr) delete m_expr; }
   void genCode(CodeCtx &);
 };
 
@@ -212,11 +224,9 @@ class DebugStmt : public Node {
 
 class PrintStmt : public Node {
   public:
-  std::string m_str;
-  Expr *m_expr;
-  PrintStmt(const char* str) : m_str(str), m_expr(0) {}
-  PrintStmt(Expr *expr) : m_expr(expr) {} 
-  ~PrintStmt() { if (m_expr) delete m_expr; }
+  PrintArgList *m_args;
+  PrintStmt(PrintArgList *args) : m_args(args) {} 
+  ~PrintStmt();
    void genCode(CodeCtx &);
 };
 

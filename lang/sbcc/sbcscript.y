@@ -26,6 +26,7 @@ void yyerror(const char *s);
     VarDec *vardec;
     FunctionArgList *funcargs;
     FunctionCallArgList *funccallargs;
+    PrintArgList *printargs;
     Stmts *stmts;
 }
 
@@ -39,9 +40,10 @@ void yyerror(const char *s);
 
 %type<node> sbcscript stmt code_block function_decl assign expr term return deberr print
 %type<node> gvar_decl var_decl function_call userfunc_call while if ifblock elseblock wait thread stop is_running 
-%type<node> dowhile for for_expr for_begin for_step
+%type<node> dowhile for for_expr for_begin for_step print_arg
 %type<funcargs> function_decl_args 
 %type<funccallargs> function_call_args
+%type<printargs> print_args
 %type<stmts> stmts
 %type<sval> lval
 
@@ -192,8 +194,18 @@ deberr:
     ;
 
 print:
-    PRINT '(' STRVAR ')' { $$ = new PrintStmt ( $3 ); free($3); } 
-    | PRINT '(' expr ')' { $$ = new PrintStmt ( (Expr*)$3 ); }
+    PRINT '(' print_args ')' { $$ = new PrintStmt ( $3 ); }
+    ;
+
+print_args:
+    /* empty */ { $$ = new PrintArgList(); } 
+    | print_arg { $$ = new PrintArgList(); $$->push_back((PrintArg*)$1); }
+    | print_args ',' print_arg { $$->push_back((PrintArg*)$3); }
+    ;
+
+print_arg:
+    STRVAR { $$ = new PrintArg((const char*)$1); free($1); }
+    | expr { $$ = new PrintArg((Expr*)$1); }
     ;
 
 expr:
@@ -206,8 +218,6 @@ expr:
     | expr '<' expr { $$ = new BinaryExpr ( (Expr*)$1, OP_LT, (Expr*)$3 ); }
     | expr '>' expr { $$ = new BinaryExpr ( (Expr*)$1, OP_GT, (Expr*)$3 ); }
     | expr LE expr { $$ = new BinaryExpr ( (Expr*)$1, OP_LE, (Expr*)$3 ); }
-    | expr GE expr { $$ = new BinaryExpr ( (Expr*)$1, OP_GE, (Expr*)$3 ); }
-    | expr EQOP expr { $$ = new BinaryExpr ( (Expr*)$1, OP_EQ, (Expr*)$3 ); }
     | expr GE expr { $$ = new BinaryExpr ( (Expr*)$1, OP_GE, (Expr*)$3 ); }
     | expr EQOP expr { $$ = new BinaryExpr ( (Expr*)$1, OP_EQ, (Expr*)$3 ); }
     | expr NEOP expr { $$ = new BinaryExpr ( (Expr*)$1, OP_NE, (Expr*)$3 ); }

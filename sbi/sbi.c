@@ -330,40 +330,11 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 
     // next commands with least one variable
     // set var1 depending on command type
-    switch (rd) {
-        case _istr_assign:
-        case _istr_move:
-    	case _istr_incr:
-		case _istr_decr:
-        case _istr_inv:
-        case _istr_tob:
-        case _istr_intr:
-        case _istr_thread:
-        case _istr_wait:
-        case _istr_stop:
-        case _istr_alive:
-        case _istr_push:
-        case _istr_jump:
-        case _istr_cmpjump:
-        case _istr_debug:
-        case _istr_error:
-        case _istr_printd:
-        case _istr_sint:
-		case _istr_add:
-		case _istr_sub:
-        case _istr_mul:
-        case _istr_div:
-        case _istr_cmp:
-        case _istr_high:
-        case _istr_low:
-        case _istr_lte:
-        case _istr_gte:
-            var1t = _getfch();
-            var1 = _getfval(var1t);
-            break;
-        default: // NOTE _istr_int allowed to pass through because 
-                 // _istr_intr needs to read the var1t,var1
-            break;
+    if (rd != _istr_int) {
+        var1t = _getfch();
+        var1 = _getfval(var1t);
+        // NOTE _istr_int allowed to pass through because 
+        // _istr_intr needs to read the var1t,var1
     }
 
     // now handle them

@@ -227,34 +227,51 @@ struct argv_t {
   uint32_t vVal;
 };
 
-argv_t parseInt(string token) {
+argv_t parseInt(string token, unsigned max, bool base16ok, bool &ok) {
     bool base16 = token.size()>2 &&
                   token.substr(0,2).compare("0x")==0;
     argv_t v;
+    if (base16 && !base16ok) {ok=false; return v;}
+
+    for (int i=base16?2:0; i<token.size(); ++i ) {
+        char d=token[i]; 
+        if (d >= '0' && d <= '9') continue;
+        if (base16 && d>='a' && d<='f') continue;
+        if (base16 && d>='A' && d<='F') continue;
+        ok=false;
+        return v;
+    }
+ 
     v.iVal = strtoul(token.c_str(),NULL, base16?16:10);
     if (v.iVal<=0xff) v.type = _value8;
     else if (v.iVal<=0xffff) v.type = _value16;
     else v.type = _value32;
+
+    if (v.iVal > max) ok=false;
+
     return v;
 }
 
-argv_t parseNonString(string token) {
+argv_t parseNonString(string token, bool &ok) {
     argv_t v;
-    
+    ok=true; 
     switch (token[0] ) {
         case '_':
             switch (token[1]) {
                 case 't': 
                     v.type=_varid;
                     {
-                      argv_t tmp=parseInt(token.substr(2));
+                      argv_t tmp=parseInt(token.substr(2), 63, false, ok); // TODO magic hard coded numbers 
+                                                                              // because sbi.h isn't included? 
+                                                                              // should it be?
+                                                                              // how to enforce the same compile limits.
                       v.iVal=tmp.iVal;
                     }
                     break;
                 case 'r':
                     v.type=_regid;
                     {
-                        argv_t tmp=parseInt(token.substr(2));
+                        argv_t tmp=parseInt(token.substr(2), 15, false, ok );
                         v.iVal=tmp.iVal;
                     }
                     break;
@@ -266,7 +283,7 @@ argv_t parseNonString(string token) {
                         case '+': 
                             v.type=_stackvid;
                             {
-                                argv_t tmp=parseNonString(token.substr(3));
+                                argv_t tmp=parseNonString(token.substr(3), ok);
                                 v.vType = tmp.type;
                                 v.vVal = tmp.iVal;
                                 break;
@@ -274,7 +291,7 @@ argv_t parseNonString(string token) {
                         default:
                             v.type=_stackid;
                             {
-                                argv_t tmp=parseInt(token.substr(2));
+                                argv_t tmp=parseInt(token.substr(2), 63, false, ok);
                                 v.iVal=tmp.iVal;
                             }
                             break;
@@ -283,7 +300,7 @@ argv_t parseNonString(string token) {
             return v;
             break;
         default:
-            return parseInt(token);
+            return parseInt(token, 0xffffffffu, true, ok);
     }
         
 }    
@@ -295,6 +312,15 @@ int pline(string command, vector<string>& args, sasmc_ctx_t& ctx)
 {
     int argn=args.size();
 	vector<argv_t> argv(argn);
+
+    // special handle ':' on label
+    if (command == "label") {
+        if (argn == 2 && args[1] != ":") {
+            cerror ( command, WRONGTYPE );
+            return 1;
+        } else if (argn == 2) 
+            --argn; // ignore the ':'
+    }
 	
 	if (ctx.verbose) {
 	   printf ( "Command: %s Args: " , command.c_str() );
@@ -327,7 +353,11 @@ int pline(string command, vector<string>& args, sasmc_ctx_t& ctx)
 
 	for (int i=0; i<argn; i++)
 	{
-	    argv[i] = parseNonString(args[i]);
+        bool ok;
+	    argv[i] = parseNonString(args[i], ok);
+        if (!ok) {
+            cerror ( command, WRONGTYPE ); return 1; 
+        }
 	}
 	
 	if (command.compare("assign")==0)
@@ -593,7 +623,7 @@ int sasmc (
 	    	
 		if (line!="")
 		{
-			str.set(line, " \t;");
+			str.set(line, " \t;:");
             tokens.clear();
     
 			while((token = str.next(true)) != "")

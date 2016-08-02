@@ -79,7 +79,7 @@ void main() {
                      // before thread2 does much.
 
   // call a couple user funcs
-  user0 ( (c+3), c-3, 7+5 );
+  user0 ( (12+3), 12-3, 7+5 );
   int tmp = user2 ();
   print ( "user entered: " );
   print ( tmp );

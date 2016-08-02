@@ -42,6 +42,7 @@ debug _r1;
 debug _r3;
 print "final stack pos ";
 printd _sp
+print "\n"
 exit;
 
 

@@ -44,7 +44,11 @@
 	}
 
     DTYPE msgbox(uint8_t argc, DTYPE* args) {
-       printf ( "msgbox .. tmp ignored args.\n" );
+       int i;
+       printf ( "msgbox " );
+       for (i=0;i<argc;++i)
+        printf ( "%d " , args[i] );
+       printf ( "\n" );
        return 0;
     }
 	

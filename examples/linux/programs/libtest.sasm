@@ -8,25 +8,50 @@ intr _t0 ; Call selected user function with t0 as return storage
 intr _t1 ; Call selected user function with t1 as return storage 
 
 add _t0 _t1 _t2 ; t2 = t0 + t1
-debug _t2;
+print "a+b "; 
+printd _t2;
+print "\n"
 div _t2 2 _t3 ; t3 = t2 / 2
-debug _t3;
+print "(a+b) / 2 "
+printd _t3;
+print "\n"
 sub _t1 _t3 _t4 ; t4 = t1 - t3
-debug _t4;
+print "b-(a+b)/2 "
+printd _t4;
+print "\n"
 div _t0 2 _t5 ; t5 = t0 / 2
-debug _t5;
+print "a / 2 "
+printd _t5
+print "\n"
 add _t5 _t4 _t6 ; t6 = t5 + t4
-debug _t6; 
+print "a/2 + (b-(a+b)/2) "
+printd _t6
+print "\n"
 mul _t4 _t6 _t7 ; t7 = t4 + t6
-debug _t7
+print "(b-(a+b)/2) * (a/2+(b-(a+b)/2)) "
+printd _t7
+print "\n"
 low _t0 _t7 _t8 ; t8 = t0 < t8
-debug _t8
+print "a < _t7 "
+printd _t8
+print "\n"
 high _t1 _t8 _t9 ; t9 = t1 > t8
-debug _t9
+print "b > _t8 "
+printd _t9
+print "\n"
 lte _t0 _t9 _t10 ; t10 = t0 <= t9
-debug _t10
+print "a <= _t9 "
+printd _t10
+print "\n"
 gte _t1 _t10 _t11 ; t11 = t1 >= t19
-debug _t11
+print "b >= _t10 "
+printd _t11
+print "\n"
+mod _t0 _t1 _t12 ; t12 = a % b
+print "a % b "
+printd _t12
+print "\n"
+
 
 sint 0 ; Select user function number 2 (custom console output)
 int _t0 _t1 _t7 ; Call selected user function with t0, t1, t7 as parameters

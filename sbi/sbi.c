@@ -259,8 +259,8 @@ DTYPE _sbi_getfval(uint8_t type, SBITHREAD* thread, sbi_runtime_t* rt) {
 sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
 {
 
-    uint8_t rd, var1t, var2t, var3t;
-    DTYPE var1, var2, var3, val1, val2, val3;
+    uint8_t rd, var1t=0, var2t, var3t;
+    DTYPE var1=0, var2, var3, val1, val2, val3;
 
     // reorder function to remove duplicated code (reduce code size)
 	rd = _getfch();
@@ -498,12 +498,15 @@ sbi_error_t _sbi_step_internal(SBITHREAD* thread, sbi_runtime_t* rt)
                 val3=val1*val2;
                 break;
             case _istr_div:
+            case _istr_mod:
                 if (!val2) {
                     _error(SBI_DIV_BY_0);
                     return SBI_PROG_ERROR;
                 }
-                val3=val1/val2;
+
+                val3= rd==_istr_div ? val1/val2 : val1 % val2;
                 break;
+
             case _istr_cmp:
                 val3=val1==val2 ? 1 : 0;
                 break;

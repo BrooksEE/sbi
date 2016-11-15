@@ -185,8 +185,8 @@ void _cerror(string command, CERRORTYPE type, sasmc_ctx_t &ctx)
 }
 
 // helper compare argt[i] for _varid or _regid
-#define VARORREG(i) ((argv[i].type&0x80)==0x80)
-#define CONST(i) ((argv[i].type&0x40)==0x40)
+#define VARORREG(i) ((argv[i].type&0xC0)==0x80)
+#define CONST(i) ((argv[i].type&0xC0)==0xC0)
 
 #define WV32(t,val) do {\
       wb(val & 0xFF); \
@@ -383,6 +383,7 @@ int pline(string command, vector<string>& args, sasmc_ctx_t& ctx)
         command.compare("sub")==0 ||
 	    command.compare("mul")==0 ||
         command.compare("div")==0 ||
+        command.compare("mod")==0 ||
         command.compare("cmp")==0 ||
         command.compare("high")==0 ||
         command.compare("low")==0 ||
@@ -564,6 +565,7 @@ int sasmc (
 	    instructions["sub"] = _istr_sub;
 	    instructions["mul"] = _istr_mul;
 	    instructions["div"] = _istr_div;
+        instructions["mod"] = _istr_mod;
         instructions["push"] = _istr_push;
         instructions["pop"] = _istr_pop;
 	    instructions["incr"] = _istr_incr;

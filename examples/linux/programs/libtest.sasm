@@ -16,7 +16,7 @@ debug _t4;
 div _t0 2 _t5 ; t5 = t0 / 2
 debug _t5;
 add _t5 _t4 _t6 ; t6 = t5 + t4
-debug _t6
+debug _t6; 
 mul _t4 _t6 _t7 ; t7 = t4 + t6
 debug _t7
 low _t0 _t7 _t8 ; t8 = t0 < t8
@@ -25,7 +25,7 @@ high _t1 _t8 _t9 ; t9 = t1 > t8
 debug _t9
 lte _t0 _t9 _t10 ; t10 = t0 <= t9
 debug _t10
-gte _t1 t10 _t11 ; t11 = t1 >= t19
+gte _t1 _t10 _t11 ; t11 = t1 >= t19
 debug _t11
 
 sint 0 ; Select user function number 2 (custom console output)

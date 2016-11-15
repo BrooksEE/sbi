@@ -623,13 +623,13 @@ int sasmc (
 	    	
 		if (line!="")
 		{
-			str.set(line, " \t;:");
+			str.set(line, DEFAULT_DELIMITER + ";:");
             tokens.clear();
     
 			while((token = str.next(true)) != "")
 			{
                 if (token == ";") break;
-                if (token != " " && token != "\t" )
+                if (token.size() > 1 || DEFAULT_DELIMITER.find(token[0]) == string::npos )
 				    tokens.push_back(token);
 			}
             if (tokens.empty()) continue;

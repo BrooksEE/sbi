@@ -40,11 +40,11 @@ void testMath() {
    if ( 1<=0 ) error ( 0xe3);
    if ( 0>=1) error ( 0xe4);
    if ( 10+10 != 20) error (0xe5);
-   if ( 20-10 != 10) error (0xe6);
+   if ( 20-10 != 10) error (0xE6);
    if ( 10*10 != 100) error (0xe7);
    if ( 100/20 != 5) error(0xe8);
    if ( 5==5 != 1 ) error (0xe9);
-   if ( 7 % 4 + 5 != 8 ) error (0xea);
+   if ( 7 % 4 + 5 != 8 ) error (0xeA);
 
 }
 

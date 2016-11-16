@@ -52,7 +52,7 @@ user[0-9]+     { yylval.ival = atoi(yytext+4); return USERF; }
 &&             { return LOGIC_AND; }
 \|\|           { return LOGIC_OR; }
 [0-9]+         { yylval.ival = atoi(yytext); return INT; }
-0x[0-9a-f]+    { yylval.ival = strtol( yytext, NULL, 16 ); return INT; }
+0x[0-9a-fA-F]+    { yylval.ival = strtol( yytext, NULL, 16 ); return INT; }
 (_[a-zA-Z0-9]+)|([a-zA-Z][a-zA-Z0-9_]*)    {
                     _T();
                     return STRING;

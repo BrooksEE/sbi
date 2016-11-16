@@ -49,7 +49,7 @@ void yyerror(const char *s);
 
 %left '<' '>' LE GE EQOP NEOP LOGIC_AND LOGIC_OR
 %left '-' '+'
-%left '*' '/'
+%left '*' '/' '%'
 
 %%
 sbcscript:
@@ -215,6 +215,7 @@ expr:
     | expr '-' expr { $$ = new BinaryExpr ( (Expr*)$1, OP_SUB, (Expr*)$3 ); }
     | expr '*' expr { $$ = new BinaryExpr ( (Expr*)$1, OP_MULT, (Expr*)$3 ); }
     | expr '/' expr { $$ = new BinaryExpr ( (Expr*)$1, OP_DIV, (Expr*)$3 ); }
+    | expr '%' expr { $$ = new BinaryExpr ( (Expr*)$1, OP_MOD, (Expr*)$3 ); }
     | expr '<' expr { $$ = new BinaryExpr ( (Expr*)$1, OP_LT, (Expr*)$3 ); }
     | expr '>' expr { $$ = new BinaryExpr ( (Expr*)$1, OP_GT, (Expr*)$3 ); }
     | expr LE expr { $$ = new BinaryExpr ( (Expr*)$1, OP_LE, (Expr*)$3 ); }

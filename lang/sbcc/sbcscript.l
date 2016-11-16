@@ -57,7 +57,7 @@ user[0-9]+     { yylval.ival = atoi(yytext+4); return USERF; }
                     _T();
                     return STRING;
 }
-[;\(\)\!={}\+\<\>\-/\*,]     { 
+[;\(\)\!={}\+\<\>\-/\*\%,]     { 
                 /* cout << "token: '" << yytext[0] << "'" << endl; */ return yytext[0]; }
 \n            { ++line_num;}
 .             { cout << "warn ignore " << yytext << endl; } 

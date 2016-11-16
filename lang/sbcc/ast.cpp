@@ -578,6 +578,9 @@ void BinaryExpr::stream(std::ostream &o) const {
    case OP_DIV:
       o << '/';
       break;
+   case OP_MOD:
+      o << '%';
+      break;
    case OP_LT:
       o << '<';
       break;
@@ -630,7 +633,10 @@ void BinaryExpr::evalTo(CodeCtx &ctx, const string &target) {
           emit(ctx, "mul _r0 _r1 %s\t\t\t; * \n", target.c_str());
           break;
         case OP_DIV:
-          emit(ctx, "div _r0 _r1 %s\t\t\t; * \n", target.c_str());
+          emit(ctx, "div _r0 _r1 %s\t\t\t; / \n", target.c_str());
+          break;
+        case OP_MOD:
+          emit(ctx, "mod _r0 _r1 %s\t\t\t; %% \n", target.c_str());
           break;
         case OP_LT:
           emit(ctx, "low _r0 _r1 %s\t\t\t; < \n", target.c_str());

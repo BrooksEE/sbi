@@ -39,7 +39,7 @@
 	#define _istr_inv						0x0A // inv <var> ; <var> = !<var>
 	#define _istr_tob						0x0B // tob <var> ; <var> > 0  ? 1 : 0 
 	#define _istr_cmp						0x0C // cmp <any1> <any2> <var> ; <var> = <any1> == <any2>
-	#define _istr_high						0x0D // high <any1> <any2> <var> ; <var> = <any2> > <any2>
+	#define _istr_high						0x0D // high <any1> <any2> <var> ; <var> = <any1> > <any2>
 	#define _istr_low						0x0E // low <any1> <any2> <var> ; <var> = <any1> < <any2>
     #define _istr_lte                       0x0F // lte <any1> <any2> <var> ; <var> = <any1> <= <any2>
     #define _istr_gte                       0x10 // gte <any1> <any2> <var> ; <var> = <any1> >= <any2>
